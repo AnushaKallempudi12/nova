@@ -103,9 +103,9 @@ def get_platforms(): return {"platforms":PLATFORMS,"configured_public_boards":le
 def get_config():
     n=len(GREENHOUSE_BOARDS)+len(LEVER_SITES)
     return {"resume_upload_enabled":True,"resume_parsing_enabled":True,"application_tracking_enabled":True,"application_storage":"database",
-    "live_job_search_enabled":n>0,"job_verification_enabled":True,"application_preparation_enabled":True,
-    "application_submission_enabled":False,"provider_integrations_configured":n>0,"configured_public_boards":n,
-    "message":"Nova parses resumes, searches configured public Greenhouse and Lever boards, verifies job destinations and prepares user-controlled applications. Automatic submission is disabled."}
+    "live_job_search_enabled":n>0,"job_verification_enabled":True,"guided_application_enabled":True,
+    "application_preparation_enabled":False,"application_submission_enabled":False,"provider_integrations_configured":n>0,"configured_public_boards":n,
+    "message":"Nova parses resumes, searches configured public Greenhouse and Lever boards, verifies job destinations and opens employer application pages for user-controlled completion. Form autofill and automatic submission are disabled."}
 @app.get("/api/v1/applications")
 def list_applications(workspace_id:str):
     with SessionLocal() as db:
