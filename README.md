@@ -7,7 +7,7 @@ Nova is a responsive job-search workspace with a **verify-first, one-application
 - Resume selection stays in the browser. Nova does not upload or store the resume.
 - Individually selectable job sources and locally saved preferences.
 - Interactive application dashboard with status cards, date-range filters, status distribution, manual application entry, editable statuses, notes, follow-up/interview dates, and an expandable application tracker.
-- Application records stored through the backend database API and scoped to a browser-generated workspace identifier.
+- Application records stored through the backend database API and scoped to a browser-generated workspace identifier. This is workspace separation only, not secure account authentication.
 - Read-only search of configured Greenhouse and Lever public employer boards.
 - Exact job-ID, title, employer-board, and application-URL recheck against the live public provider feed.
 - Curated company-domain reachability check for the initial employer registry.
