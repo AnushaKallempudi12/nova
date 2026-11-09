@@ -25,7 +25,7 @@ Never pay to apply, deposit a check, buy gift cards, or share banking credential
 - The "I submitted this application" control records only the user's own confirmation in the current browser session; Nova does not confirm receipt from the employer.
 
 ## Supported job sources
-The starter Greenhouse board registry currently includes Coinbase, Stripe, DoorDash, Airbnb, Discord, Robinhood, Datadog, Anduril Industries, and SpaceX. This is a configurable starter list, not a guarantee that each employer has a current matching vacancy. Live availability is checked at search time. Override it with `GREENHOUSE_BOARD_TOKENS`; add Lever site identifiers with `LEVER_SITE_NAMES`. Each list is capped at 25 valid identifiers.
+The first pilot is intentionally limited to one Greenhouse employer board: Coinbase. This is a temporary test configuration, not a long-term employer preference or a guarantee of a current matching vacancy. Live availability is checked at search time. After the first application is reviewed, expand the registry using `GREENHOUSE_BOARD_TOKENS`; add Lever site identifiers with `LEVER_SITE_NAMES`. Each list is capped at 25 valid identifiers.
 
 Other platform selections (LinkedIn, Indeed, Glassdoor, ZipRecruiter, Dice, Wellfound, and other portals) remain unconnected until an approved integration is implemented. Nova does not scrape sites or bypass their terms.
 
