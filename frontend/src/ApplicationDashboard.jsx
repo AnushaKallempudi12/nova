@@ -64,7 +64,7 @@ export default function ApplicationDashboard({ apiBase, workspaceId }) {
   };
   return <section className="application-dashboard" id="applications">
     <div className="section-head">
-      <div><span className="eyebrow">YOUR ACTIVITY</span><h3>Application dashboard</h3><p>Track your applications and see how your search is progressing.</p></div>
+      <div><span className="eyebrow">YOUR ACTIVITY</span><h3>Application dashboard</h3><p>Track your applications and see how your search is progressing.</p><p className="dashboard-privacy">Workspace separation is browser-based at this stage; account login and secure per-user authentication are not yet implemented.</p></div>
       <button className="primary" onClick={()=>setShowForm(v=>!v)}><Plus size={15}/>{showForm?"Close form":"Add application"}</button>
     </div>
     <div className="dashboard-toolbar"><span><CalendarDays size={14}/> Activity period</span><select value={period} onChange={e=>setPeriod(e.target.value)}><option>All time</option><option>7 days</option><option>30 days</option><option>90 days</option></select><button className="secondary" onClick={load} disabled={loading}><RefreshCw size={13}/>{loading?"Refreshing":"Refresh"}</button></div>
