@@ -23,7 +23,7 @@ export default function ApplicationDashboard({ apiBase, workspaceId }) {
     } catch(e) { setError(e.message); }
     finally { setLoading(false); }
   };
-  useEffect(()=>{load();},[workspaceId]);
+  useEffect(()=>{load(); const refresh=()=>load(); window.addEventListener("nova-applications-updated",refresh); return ()=>window.removeEventListener("nova-applications-updated",refresh);},[workspaceId]);
   const scoped = useMemo(()=>{
     if(period==="All time") return items;
     const days=period==="7 days"?7:period==="30 days"?30:90;
