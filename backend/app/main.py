@@ -1,11 +1,16 @@
 import os
+from pathlib import Path
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .providers import GREENHOUSE_BOARDS, LEVER_SITES, search_public_company_boards
+from .verification import verify_job_listing
 
-app = FastAPI(title="Nova Career Intelligence API", version="0.2.0")
+app = FastAPI(title="Nova Career Intelligence API", version="0.3.0")
+FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 allowed_origins = [
     origin.strip()
@@ -39,9 +44,18 @@ class JobSearchRequest(BaseModel):
     limit: int = Field(default=50, ge=1, le=100)
 
 
+class JobVerificationRequest(BaseModel):
+    job_id: str = Field(min_length=1, max_length=300)
+    url: str = Field(min_length=8, max_length=2000)
+    title: str = Field(min_length=1, max_length=300)
+    company: str = Field(min_length=1, max_length=200)
+
+
 @app.get("/")
 def root():
-    return {"name": "Nova Career Intelligence API", "status": "preview", "version": "0.2.0"}
+    if FRONTEND_DIST.joinpath("index.html").is_file():
+        return FileResponse(FRONTEND_DIST / "index.html")
+    return {"name": "Nova Career Intelligence", "status": "api-ready", "version": "0.3.0"}
 
 
 @app.get("/health")
@@ -60,10 +74,12 @@ def get_config():
     return {
         "resume_upload_enabled": False,
         "live_job_search_enabled": configured_boards > 0,
+        "job_verification_enabled": True,
+        "pilot_application_enabled": True,
         "application_submission_enabled": False,
         "provider_integrations_configured": configured_boards > 0,
         "configured_public_boards": configured_boards,
-        "message": "Public company-board discovery is available only for configured Greenhouse and Lever boards. Resume upload and application submission remain disabled until secure user accounts, private storage, consent, and approved workflows are implemented."
+        "message": "Nova can search configured public Greenhouse and Lever boards and verify exact live listings. The pilot guides the user to the employer application page; automated submission and server-side resume storage are disabled."
     }
 
 
@@ -74,3 +90,24 @@ async def search_jobs(request: JobSearchRequest):
         location=request.location,
         limit=request.limit,
     )
+
+
+@app.post('/api/v1/verify-job')
+async def verify_job(request: JobVerificationRequest):
+    return await verify_job_listing(
+        job_id=request.job_id,
+        submitted_url=request.url,
+        submitted_title=request.title,
+        submitted_company=request.company,
+    )
+
+
+if FRONTEND_DIST.exists():
+    app.mount('/assets', StaticFiles(directory=str(FRONTEND_DIST / 'assets')), name='frontend-assets')
+
+    @app.get('/{full_path:path}')
+    def frontend_fallback(full_path: str):
+        candidate = FRONTEND_DIST / full_path
+        if candidate.is_file() and FRONTEND_DIST in candidate.resolve().parents:
+            return FileResponse(candidate)
+        return FileResponse(FRONTEND_DIST / 'index.html')
