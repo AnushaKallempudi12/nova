@@ -7,10 +7,33 @@ from typing import Any
 import httpx
 
 TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
+# Starter employers selected for broad software engineering opportunities.
+# Board identifiers were publicly verified on Greenhouse; availability is rechecked live per search.
+STARTER_GREENHOUSE_BOARDS = [
+    "coinbase", "stripe", "doordashusa", "airbnb", "discord",
+    "robinhood", "datadog", "andurilindustries", "spacex",
+]
 GREENHOUSE_BOARDS = [
-    value.strip() for value in os.getenv("GREENHOUSE_BOARD_TOKENS", "").split(",")
+    value.strip() for value in os.getenv(
+        "GREENHOUSE_BOARD_TOKENS", ",".join(STARTER_GREENHOUSE_BOARDS)
+    ).split(",")
     if value.strip() and TOKEN_PATTERN.fullmatch(value.strip())
 ][:25]
+COMPANY_NAMES = {
+    "coinbase": "Coinbase",
+    "stripe": "Stripe",
+    "doordashusa": "DoorDash",
+    "airbnb": "Airbnb",
+    "discord": "Discord",
+    "robinhood": "Robinhood",
+    "datadog": "Datadog",
+    "andurilindustries": "Anduril Industries",
+    "spacex": "SpaceX",
+}
+SENIOR_TITLE_TERMS = (
+    "senior", "staff", "principal", "lead", "director", "manager",
+    "architect", "head of", "vice president", "vp "
+)
 LEVER_SITES = [
     value.strip() for value in os.getenv("LEVER_SITE_NAMES", "").split(",")
     if value.strip() and TOKEN_PATTERN.fullmatch(value.strip())
@@ -28,6 +51,9 @@ def _matches(job: dict[str, Any], query: str, location: str) -> bool:
     searchable = " ".join(str(job.get(key, "")) for key in ("title", "description", "company")).lower()
     phrases = [part.strip().lower() for part in query.split(",") if part.strip()]
     if phrases and not any(phrase in searchable for phrase in phrases):
+        return False
+    title = str(job.get("title", "")).lower()
+    if any(term in title for term in SENIOR_TITLE_TERMS):
         return False
     wanted_location = location.strip().lower()
     actual_location = str(job.get("location", "")).lower()
@@ -50,7 +76,7 @@ async def _greenhouse(client: httpx.AsyncClient, board: str, query: str, locatio
         job = {
             "id": f"greenhouse:{board}:{item.get('id')}",
             "title": item.get("title", "Untitled role"),
-            "company": board.replace("-", " ").replace("_", " ").title(),
+            "company": COMPANY_NAMES.get(board, board.replace("-", " ").replace("_", " ").title()),
             "location": location_name,
             "description": _plain_text(item.get("content", ""))[:1200],
             "url": item.get("absolute_url", ""),
