@@ -37,7 +37,7 @@ export default function ApplicationDashboard({ apiBase, workspaceId }) {
     responded:scoped.filter(x=>["Responded","Interview","Offer"].includes(x.status)).length,
     rejected:scoped.filter(x=>x.status==="Rejected").length
   };
-  const visible=scoped.filter(x=>filter==="All"||x.status===filter);
+  const visible=scoped.filter(x=>filter==="All"||(filter==="Responded"?["Responded","Interview","Offer"].includes(x.status):x.status===filter));
   const save = async e => {
     e.preventDefault();
     try {
