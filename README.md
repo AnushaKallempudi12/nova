@@ -31,11 +31,22 @@ Other platform selections (LinkedIn, Indeed, Glassdoor, ZipRecruiter, Dice, Well
 
 ## Deploy to Railway
 
-The repository includes a root `Dockerfile` and `railway.json`. Railway should deploy the repository root as one service:
-- Builder: Dockerfile (configured by `railway.json`).
+Railway uses two services from the same GitHub repository so each can build from its own directory:
+
+**Backend service (`nova`)**
+- Repository: `AnushaKallempudi12/nova`, branch `main`.
+- Root directory: `/backend`.
+- Build command: `pip install -r requirements.txt`.
+- Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
 - Health check: `/health`.
-- The container builds the React frontend and serves it from FastAPI.
-- The API and frontend share one origin, so no frontend API URL variable is required.
+- Variable `NOVA_ALLOWED_ORIGINS`: the frontend Railway domain, including `https://`.
+
+**Frontend service (`nova-frontend`)**
+- Same repository and branch.
+- Root directory: `/frontend`.
+- Build command: `npm install && npm run build`.
+- Start command: `npm run preview -- --host 0.0.0.0 --port $PORT`.
+- Variable `VITE_API_BASE_URL`: the backend Railway domain, including `https://`. This is a build-time variable, so changing it requires a frontend rebuild.
 
 Optional backend variables:
 - `GREENHOUSE_BOARD_TOKENS`: comma-separated Greenhouse board identifiers. If omitted, the starter registry is used.
