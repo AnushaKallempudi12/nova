@@ -20,7 +20,7 @@ LEVER_SITES = [
 def _plain_text(value: str | None) -> str:
     if not value:
         return ""
-    return re.sub(r"\\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", value))).strip()
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", value))).strip()
 
 
 def _matches(job: dict[str, Any], query: str, location: str) -> bool:
