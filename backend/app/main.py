@@ -43,6 +43,14 @@ class JobSearchRequest(BaseModel):
     location: str = Field(default="United States", max_length=120)
     limit: int = Field(default=50, ge=1, le=100)
 
+    @classmethod
+    def model_validate(cls, obj, *args, **kwargs):
+        # Keep the production pilot scoped to the US until India sources and
+        # location matching are implemented and tested as a separate phase.
+        if isinstance(obj, dict) and obj.get("location", "United States").strip().lower() not in {"united states", "usa", "us"}:
+            raise ValueError("Only United States job search is enabled in this phase.")
+        return super().model_validate(obj, *args, **kwargs)
+
 
 class JobVerificationRequest(BaseModel):
     job_id: str = Field(min_length=1, max_length=300)

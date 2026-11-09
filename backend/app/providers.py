@@ -44,6 +44,45 @@ def _plain_text(value: str | None) -> str:
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", decoded)).strip()
 
 
+US_STATE_NAMES = {
+    "alabama", "alaska", "arizona", "arkansas", "california", "colorado",
+    "connecticut", "delaware", "florida", "georgia", "hawaii", "idaho",
+    "illinois", "indiana", "iowa", "kansas", "kentucky", "louisiana",
+    "maine", "maryland", "massachusetts", "michigan", "minnesota",
+    "mississippi", "missouri", "montana", "nebraska", "nevada",
+    "new hampshire", "new jersey", "new mexico", "new york",
+    "north carolina", "north dakota", "ohio", "oklahoma", "oregon",
+    "pennsylvania", "rhode island", "south carolina", "south dakota",
+    "tennessee", "texas", "utah", "vermont", "virginia", "washington",
+    "west virginia", "wisconsin", "wyoming", "district of columbia",
+}
+US_STATE_CODES = {
+    "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN",
+    "IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV",
+    "NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN",
+    "TX","UT","VT","VA","WA","WV","WI","WY","DC",
+}
+
+
+def _is_us_location(value: str) -> bool:
+    normalized = re.sub(r"\\s+", " ", (value or "").strip().lower())
+    if not normalized:
+        return False
+    if any(marker in normalized for marker in (
+        "united states", "united states of america", " usa", "usa ",
+        "u.s.", "remote - us", "remote, us", "remote (us)",
+    )):
+        return True
+    if normalized in {"us", "usa", "remote us", "remote - usa"}:
+        return True
+    if any(state in normalized for state in US_STATE_NAMES):
+        return True
+    # Only accept a two-letter state abbreviation as a distinct comma-delimited
+    # token, avoiding false positives such as the word "in" in "Remote in Europe".
+    tokens = [part.strip().upper() for part in normalized.split(",")]
+    return any(token in US_STATE_CODES for token in tokens[1:])
+
+
 def _matches(job: dict[str, Any], query: str, location: str) -> bool:
     searchable = " ".join(str(job.get(key, "")) for key in ("title", "description", "company")).lower()
     phrases = [part.strip().lower() for part in query.split(",") if part.strip()]
@@ -53,22 +92,12 @@ def _matches(job: dict[str, Any], query: str, location: str) -> bool:
     if any(term in title for term in SENIOR_TITLE_TERMS):
         return False
     wanted_location = location.strip().lower()
-    actual_location = str(job.get("location", "")).lower()
-    if wanted_location in {"india", "in"}:
-        india_markers = ("india", "bengaluru", "bangalore", "hyderabad", "pune", "mumbai", "gurugram", "gurgaon", "noida", "chennai", "kolkata", "delhi", "ahmedabad", "kochi")
-        if not any(marker in actual_location for marker in india_markers):
-            return False
-    elif wanted_location in {"united states", "usa", "us"}:
-        us_state_codes = ("al","ak","az","ar","ca","co","ct","de","fl","ga","hi","id","il","in","ia","ks","ky","la","me","md","ma","mi","mn","ms","mo","mt","ne","nv","nh","nj","nm","ny","nc","nd","oh","ok","or","pa","ri","sc","sd","tn","tx","ut","vt","va","wa","wv","wi","wy","dc")
-        us_markers = ("united states", "usa", "u.s.", " us", "remote - us", "remote, us")
-        has_us_marker = any(marker in actual_location for marker in us_markers)
-        has_state_code = any(re.search(rf"(?:^|[, -]){code}(?:$|[, -])", actual_location) for code in us_state_codes)
-        if not has_us_marker and not has_state_code:
-            return False
-    elif wanted_location and wanted_location not in actual_location:
+    actual_location = str(job.get("location", ""))
+    if wanted_location in {"united states", "usa", "us"}:
+        return _is_us_location(actual_location)
+    if wanted_location and wanted_location not in actual_location.lower():
         return False
     return True
-
 
 async def _greenhouse(client: httpx.AsyncClient, board: str, query: str, location: str) -> tuple[list[dict], dict]:
     url = f"https://boards-api.greenhouse.io/v1/boards/{board}/jobs?content=true"
