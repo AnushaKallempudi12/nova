@@ -6,6 +6,8 @@ Nova is a responsive job-search workspace with a **verify-first, one-application
 - Responsive React + Vite interface, served by FastAPI from one Railway service.
 - Resume selection stays in the browser. Nova does not upload or store the resume.
 - Individually selectable job sources and locally saved preferences.
+- Interactive application dashboard with status cards, date-range filters, status distribution, manual application entry, editable statuses, notes, follow-up/interview dates, and an expandable application tracker.
+- Application records stored through the backend database API and scoped to a browser-generated workspace identifier.
 - Read-only search of configured Greenhouse and Lever public employer boards.
 - Exact job-ID, title, employer-board, and application-URL recheck against the live public provider feed.
 - Curated company-domain reachability check for the initial employer registry.
@@ -48,6 +50,10 @@ Railway uses two services from the same GitHub repository so each can build from
 - Build command: `npm install && npm run build`.
 - Start command: `npm run preview -- --host 0.0.0.0 --port $PORT`.
 - Variable `VITE_API_BASE_URL`: the backend Railway domain, including `https://`. This is a build-time variable, so changing it requires a frontend rebuild.
+
+Database configuration:
+- Set `DATABASE_URL` to a Railway PostgreSQL connection string before using application tracking with real personal data. The backend supports PostgreSQL through psycopg and uses SQLite locally when no URL is supplied. SQLite on Railway's ephemeral filesystem is not durable across redeploys.
+- Current workspace IDs provide basic record separation, not account authentication. Do not treat them as secure user accounts or store sensitive personal information until authentication and authorization are added.
 
 Optional backend variables:
 - `GREENHOUSE_BOARD_TOKENS`: comma-separated Greenhouse board identifiers. If omitted, the starter registry is used.
