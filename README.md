@@ -33,7 +33,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-Frontend defaults to `http://localhost:5173`; API defaults to `http://localhost:8000`. Set `VITE_API_BASE_URL` in the frontend environment when the API is hosted elsewhere. Set `NOVA_ALLOWED_ORIGINS` in the backend environment to a comma-separated list of trusted frontend origins. Set `GREENHOUSE_BOARD_TOKENS` and/or `LEVER_SITE_NAMES` to comma-separated employer board tokens/site names that you are authorized to query. The backend validates identifiers and caps each provider list at 25 boards.
+Frontend defaults to `http://localhost:5173`; API defaults to `http://localhost:8000`. Set `VITE_API_BASE_URL` in the frontend environment when the API is hosted elsewhere. Set `NOVA_ALLOWED_ORIGINS` in the backend environment to a comma-separated list of trusted frontend origins. Nova includes a starter Greenhouse employer list: Coinbase, Stripe, DoorDash, Airbnb, Discord, Robinhood, Datadog, Anduril Industries, and SpaceX. These were selected as technology employers with public Greenhouse boards, not as a promise that each currently has a role matching every skill. Live availability is checked when a search runs. Override the starter list by setting `GREENHOUSE_BOARD_TOKENS` to a comma-separated list; set it to an empty value only if you intentionally want no Greenhouse boards. Add `LEVER_SITE_NAMES` for additional Lever employers. The backend validates identifiers and caps each provider list at 25 boards. The initial title filter excludes senior, staff, principal, lead, manager, director, and architect roles to better target early-career opportunities.
 
 ## Integration roadmap
 1. Add and maintain an employer board registry for public Greenhouse and Lever listings.
