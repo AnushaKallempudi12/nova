@@ -97,16 +97,17 @@ async def verify_job_listing(job_id: str, submitted_url: str, submitted_title: s
     # application URL. Trust that host only when it is the curated official
     # company domain, then require an exact match with the live ATS feed below.
     allowed_hosts = set(ats_hosts)
-    if official_domain:
-        allowed_hosts.add(official_domain)
     submitted_host = (submitted.hostname or "").lower().rstrip(".")
     path_slug = (submitted.path.strip("/").split("/") or [""])[0]
     is_ats_host = submitted_host in ats_hosts
+    is_official_company_host = bool(official_domain and _host_matches(submitted_host, official_domain))
     allowed_host = submitted_host
+    if is_official_company_host:
+        allowed_hosts.add(submitted_host)
 
     if (
         submitted.scheme.lower() != "https"
-        or submitted_host not in allowed_hosts
+        or (not is_ats_host and not is_official_company_host)
         or (is_ats_host and path_slug.lower() != slug.lower())
     ):
         expected_hosts = " or ".join(sorted(allowed_hosts))
