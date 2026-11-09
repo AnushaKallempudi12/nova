@@ -25,6 +25,10 @@ export default function App() {
   const [apiStatus,setApiStatus] = useState("checking");
   const [apiMessage,setApiMessage] = useState("Checking Nova API");
   const [platformCatalog,setPlatformCatalog] = useState([]);
+  const [searchLoading,setSearchLoading] = useState(false);
+  const [searchResults,setSearchResults] = useState([]);
+  const [searchMessage,setSearchMessage] = useState("");
+  const [searchSources,setSearchSources] = useState([]);
   useEffect(() => {
     const controller = new AbortController();
     async function connectApi() {
@@ -52,6 +56,31 @@ export default function App() {
   const chosen = useMemo(()=>platforms.filter(p=>selected.includes(p.id)),[selected]);
   const toggle = id => { setSelected(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]); setSaved(false); };
   const toggleWork = v => setPrefs(p=>({...p,work:p.work.includes(v)?p.work.filter(x=>x!==v):[...p.work,v]}));
+  const runJobSearch = async () => {
+    if (!selected.includes("career")) {
+      setSearchResults([]);
+      setSearchMessage("Select Company career pages above to search configured public company boards.");
+      return;
+    }
+    setSearchLoading(true);
+    setSearchMessage("");
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: prefs.role, location: prefs.location, limit: 60 })
+      });
+      if (!response.ok) throw new Error(`Search service returned ${response.status}`);
+      const data = await response.json();
+      setSearchResults(data.jobs || []);
+      setSearchSources(data.sources_checked || []);
+      setSearchMessage(data.message || "Search complete.");
+    } catch (error) {
+      setSearchMessage(`Could not search company boards. ${error.message}. Check the API connection.`);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
   const onFile = e => { const f=e.target.files?.[0]; if(!f)return; const ok=/\.(pdf|doc|docx)$/i.test(f.name); if(!ok){setNotice("Please choose a PDF, DOC, or DOCX file.");return;} if(f.size>10*1024*1024){setNotice("Please choose a file smaller than 10 MB.");return;} setResume({name:f.name,size:(f.size/1024/1024).toFixed(2)+" MB"}); setNotice("Resume selected in this browser only. It has not been uploaded."); };
   const nav = [{name:"Overview",icon:LayoutDashboard},{name:"Resume",icon:FileText},{name:"Job platforms",icon:BriefcaseBusiness},{name:"Preferences",icon:Settings2}];
   return <div className="shell">
@@ -62,6 +91,7 @@ export default function App() {
       <section className="content-grid"><div className="panel resume-panel" id="resume"><div className="section-head"><div><span className="eyebrow">STEP 01</span><h3>Your resume</h3><p>Start with the experience you want employers to see.</p></div><FileText size={20}/></div><label className="upload-zone"><input type="file" accept=".pdf,.doc,.docx" onChange={onFile}/><span className="upload-icon"><UploadCloud size={22}/></span><b>{resume?"Choose a different resume":"Upload your resume"}</b><span>PDF, DOC or DOCX · up to 10 MB</span><small>Click to browse files</small></label>{resume&&<div className="file-row"><FileText size={17}/><span><b>{resume.name}</b><small>{resume.size} · Selected locally</small></span><button aria-label="Remove resume" onClick={()=>setResume(null)}><X size={16}/></button></div>}<p className="privacy-note"><ShieldCheck size={14}/> Preview only: the file stays on your device and is not uploaded or analyzed yet.</p>{notice&&<p className="notice">{notice}</p>}</div>
       <div className="panel preferences-panel" id="preferences"><div className="section-head"><div><span className="eyebrow">STEP 02</span><h3>Search preferences</h3><p>Tell Nova what a good next role looks like.</p></div><MapPin size={20}/></div><label className="field-label">TARGET ROLES</label><textarea value={prefs.role} onChange={e=>setPrefs(p=>({...p,role:e.target.value}))} rows="3"/><label className="field-label">LOCATION</label><input value={prefs.location} onChange={e=>setPrefs(p=>({...p,location:e.target.value}))}/><label className="field-label">WORK SETUP</label><div className="chips">{["Remote","Nationwide","Hybrid","On-site"].map(v=><button key={v} className={prefs.work.includes(v)?"chip selected":"chip"} onClick={()=>toggleWork(v)}>{prefs.work.includes(v)&&<Check size={13}/>} {v}</button>)}</div><label className="field-label">EXPERIENCE LEVEL</label><select value={prefs.experience} onChange={e=>setPrefs(p=>({...p,experience:e.target.value}))}><option>Entry level</option><option>Early career / 1–3 years</option><option>Mid-level / 3–5 years</option><option>Senior</option><option>Open to matching roles</option></select></div></section>
       <section className="panel platforms-panel" id="job-platforms"><div className="section-head platform-heading"><div><span className="eyebrow">STEP 03</span><h3>Choose your job platforms</h3><p>Select each source individually. Your choices are saved in this browser.</p></div><span className="selected-count">{selected.length} SELECTED</span></div><div className="platform-grid">{platforms.map(p=><article key={p.id} className={selected.includes(p.id)?"platform-card chosen":"platform-card"}><button className="platform-select" onClick={()=>toggle(p.id)} aria-pressed={selected.includes(p.id)}><span className="platform-check">{selected.includes(p.id)?<Check size={14}/>:null}</span><span className="platform-name">{p.name}</span><span className="platform-detail">{p.detail}</span></button><div className="capabilities"><div><span>JOB SEARCH</span><b className={p.search==="Potential"?"muted":""}>{p.search}</b></div><div><span>APPLICATION</span><b>{p.apply}</b></div></div></article>)}</div><div className="platform-footnote"><CircleHelp size={15}/><span>Capability labels are indicative only. No job-board connection is active yet. Live search and assisted/automatic applications require approved provider integrations. Nova will not bypass site restrictions or submit applications without your explicit authorization.</span></div><div className="save-row"><span>{saved?"Preferences saved in this browser.":"Changes are saved locally as you make them."}</span><button className="secondary" onClick={()=>{localStorage.setItem("nova-platforms",JSON.stringify(selected));localStorage.setItem("nova-preferences",JSON.stringify(prefs));setSaved(true);}}>Save preferences <Check size={15}/></button></div></section>
+      <section className="panel search-panel" id="job-search"><div className="section-head"><div><span className="eyebrow">STEP 04</span><h3>Discover matching jobs</h3><p>Search published roles from company boards configured by Nova.</p></div><Search size={20}/></div><div className="search-action-row"><div><b>Company career pages</b><span>Greenhouse and Lever public listings · US-wide filter</span></div><button className="primary" onClick={runJobSearch} disabled={searchLoading || apiStatus!=="connected"}>{searchLoading?"Searching…":"Search configured boards"} <ArrowUpRight size={15}/></button></div>{searchMessage&&<p className="search-message">{searchMessage}</p>}{searchSources.length>0&&<div className="source-status">{searchSources.map((s,i)=><span key={i} className={s.status==="ok"?"source-ok":"source-error"}>{s.provider}: {s.status==="ok"?`${s.count} matches`:"unavailable"}</span>)}</div>}{searchResults.length>0&&<div className="job-results">{searchResults.map(job=><article className="job-result" key={job.id}><div><h4>{job.title}</h4><p>{job.company} · {job.location || "Location not listed"} · {job.source}</p><span>{job.description}</span></div><a href={job.url} target="_blank" rel="noreferrer">View job <ArrowUpRight size={13}/></a></article>)}</div>}<p className="privacy-note"><ShieldCheck size={14}/> Search only reads published listings from configured public employer boards. Applying opens the employer’s own application page.</p></section>
       <footer><span>nova<span className="brand-dot">.</span> <small>CAREER INTELLIGENCE</small></span><span>Built around your goals. Always in your control.</span></footer>
     </main>
   </div>;
