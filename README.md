@@ -1,77 +1,65 @@
 # Nova — Career Intelligence
 
-Nova is a responsive job-search workspace with a **verify-first, one-application pilot**. It searches configured public employer job boards, checks the exact job against the live provider feed, and only then offers a guided path to the employer's application page.
+Nova is a responsive job-search workspace with separate pages for Overview, Dashboard, Applications, Resumes, Job Platforms, and More Tools.
 
-## Current pilot capabilities
-- Responsive React + Vite interface, served by FastAPI from one Railway service.
-- Resume selection stays in the browser. Nova does not upload or store the resume.
-- Individually selectable job sources and locally saved preferences.
-- Interactive application dashboard with status cards, date-range filters, status distribution, manual application entry, editable statuses, notes, follow-up/interview dates, and an expandable application tracker.
-- Application records stored through the backend database API and scoped to a browser-generated workspace identifier. This is workspace separation only, not secure account authentication.
-- Read-only search of configured Greenhouse and Lever public employer boards.
-- Exact job-ID, title, employer-board, and application-URL recheck against the live public provider feed.
-- Curated company-domain reachability check for the initial employer registry.
-- Scam-signal warnings for payment requests, gift cards, money transfers, and messaging-only interview instructions in the published description.
-- Optional recruiter screening that compares an email domain with the curated company domain, flags common personal email providers, and checks whether a supplied profile link uses a standard LinkedIn URL format.
-- One-at-a-time pilot flow for a listing that passes the source checks. The user opens and submits on the employer's application page.
+## MVP features
 
-## Verification limits
-A "Verified source" result means Nova matched the exact job to the employer's live public ATS feed, confirmed the expected ATS destination, and reached the curated company website. It is **not a guarantee** that every recruiter, email, message, or interview contact is genuine. Nova does not verify recruiter identity, prove ownership of an email account or LinkedIn profile, conduct background checks, or certify that an employer is safe. A matching email domain and a LinkedIn-looking URL are only preliminary signals. A listing that cannot be independently checked is marked "Needs review"; a mismatch or strong scam signal is blocked as "High risk".
+- Multi-page desktop and mobile navigation; the home page is an introduction and quick-start workspace rather than one long scrolling page.
+- Dashboard totals for Applied, Pending, Responded, Rejected, Interviews, Offers, and response activity.
+- Expandable application tracker with company, role, status, platform, dates, notes, filters, create, edit, and delete.
+- Resume upload and text extraction for PDF and DOCX files (10 MB maximum). Nova identifies common skills and resume-section references for the user to review.
+- Resume text is extracted in memory by the API. The original uploaded file is not retained; the extracted profile is stored in this browser's local storage.
+- Job search against configured public Greenhouse and Lever boards, with exact listing verification before opening an employer application destination.
+- Resume keyword overlap shown on job cards as a basic relevance signal, not a validated or predictive match score.
+- Job platform catalog for LinkedIn, Indeed, Glassdoor, ZipRecruiter, Dice, Wellfound, company career pages, and other supported portals. Platform selection is not the same as an account connection or active API integration.
+- More Tools area for job preferences, application limits, privacy information, and help.
 
-Never pay to apply, deposit a check, buy gift cards, or share banking credentials or sensitive identity data with an unverified contact. Verify recruiter contact details through the company's official website before sharing personal information.
+## Current integration limits
 
-## Pilot safety
-- Automated application submission is disabled.
-- Nova never answers work-authorization, sponsorship, demographic, or eligibility questions on the user's behalf.
-- The user reviews every application answer and submits directly on the employer's website.
-- Resume files are not sent to Nova's backend. Upload the file directly to the employer's portal only after checking the destination.
-- The "I submitted this application" control records only the user's own confirmation in the current browser session; Nova does not confirm receipt from the employer.
+The backend searches only the public Greenhouse and Lever boards configured through environment variables. The starter Greenhouse board is Coinbase. Add additional identifiers through `GREENHOUSE_BOARD_TOKENS` and `LEVER_SITE_NAMES` after validating each board. Search results are not a comprehensive view of every job opening.
 
-## Supported job sources
-The first pilot is intentionally limited to one Greenhouse employer board: Coinbase. This is a temporary test configuration, not a long-term employer preference or a guarantee of a current matching vacancy. Live availability is checked at search time. After the first application is reviewed, expand the registry using `GREENHOUSE_BOARD_TOKENS`; add Lever site identifiers with `LEVER_SITE_NAMES`. Each list is capped at 25 valid identifiers.
+LinkedIn, Indeed, Glassdoor, ZipRecruiter, Dice, and Wellfound are currently catalog entries only. Nova does not scrape those sites, collect their passwords, bypass access controls, or claim they are integrated.
 
-Other platform selections (LinkedIn, Indeed, Glassdoor, ZipRecruiter, Dice, Wellfound, and other portals) remain unconnected until an approved integration is implemented. Nova does not scrape sites or bypass their terms.
+## Application workflow and safety
 
-## Deploy to Railway
+Nova verifies a listing and opens the verified employer destination. The user completes and submits the application on the employer's website. The tracker starts at Pending for a job opened from discovery; the user should change it to Applied only after submitting. Nova does not automatically submit applications in this MVP.
 
-Railway uses two services from the same GitHub repository so each can build from its own directory:
+Work authorization, sponsorship, demographic, and other sensitive eligibility answers must be provided and confirmed by the user. Nova does not invent answers or claim an application was received by an employer.
 
-**Backend service (`nova`)**
-- Repository: `AnushaKallempudi12/nova`, branch `main`.
-- Root directory: `/backend`.
-- Build command: `pip install -r requirements.txt`.
-- Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
-- Health check: `/health`.
-- Variable `NOVA_ALLOWED_ORIGINS`: the frontend Railway domain, including `https://`.
+## Data and security limitations — read before using personal data
 
-**Frontend service (`nova-frontend`)**
-- Same repository and branch.
-- Root directory: `/frontend`.
-- Build command: `npm install && npm run build`.
-- Start command: `npm run preview -- --host 0.0.0.0 --port $PORT`.
-- Variable `VITE_API_BASE_URL`: the backend Railway domain, including `https://`. This is a build-time variable, so changing it requires a frontend rebuild.
+- Application records are stored in the database and scoped using a browser-generated workspace ID. This is **not authentication**; it is not safe multi-user access control.
+- Resume extracted text is kept in local storage in the current browser. Clearing browser storage removes the local profile.
+- The original uploaded resume is processed in memory and not saved as an uploaded file.
+- For durable application records on Railway, set `DATABASE_URL` to the Railway PostgreSQL connection string. SQLite on Railway's ephemeral filesystem is not durable across redeployments.
+- Do not use this MVP for sensitive personal data or expose it as a secure multi-user service until real user authentication, per-user authorization, encrypted storage, and appropriate retention controls are implemented.
 
-Database configuration:
-- Set `DATABASE_URL` to a Railway PostgreSQL connection string before using application tracking with real personal data. The backend supports PostgreSQL through psycopg and uses SQLite locally when no URL is supplied. SQLite on Railway's ephemeral filesystem is not durable across redeploys.
-- Current workspace IDs provide basic record separation, not account authentication. Do not treat them as secure user accounts or store sensitive personal information until authentication and authorization are added.
+## Railway deployment
+
+The existing Railway setup uses two services from this repository:
+
+**Backend service**
+- Root directory: `/backend`
+- Build: `pip install -r requirements.txt`
+- Start: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Health check: `/health`
+- Set `DATABASE_URL` to Railway PostgreSQL.
+- Set `NOVA_ALLOWED_ORIGINS` to the frontend Railway URL if the frontend and backend use separate domains.
+
+**Frontend service**
+- Root directory: `/frontend`
+- Build: `npm install && npm run build`
+- Start: `npm run preview -- --host 0.0.0.0 --port $PORT`
+- Set `VITE_API_BASE_URL` to the backend Railway URL. This is a build-time variable; changing it requires a frontend rebuild.
 
 Optional backend variables:
-- `GREENHOUSE_BOARD_TOKENS`: comma-separated Greenhouse board identifiers. If omitted, the starter registry is used.
+- `GREENHOUSE_BOARD_TOKENS`: comma-separated Greenhouse board identifiers.
 - `LEVER_SITE_NAMES`: comma-separated Lever site identifiers.
-- `NOVA_ALLOWED_ORIGINS`: optional comma-separated CORS origins; same-origin production requests do not require it.
+- `NOVA_ALLOWED_ORIGINS`: comma-separated frontend origins.
 
-After deployment, open the Railway-generated public domain and check `/health`. The root page should display Nova. The API docs are available at `/docs`.
+## Local development
 
-## Run locally
-
-Frontend:
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Backend (in a second terminal):
+Backend:
 ```bash
 cd backend
 python -m venv .venv
@@ -80,11 +68,19 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-The local Vite frontend uses `http://localhost:8000` for API calls by default. For local integrated production-style testing, build the frontend and run the API from the repository root.
+Frontend:
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-## Roadmap after the first pilot
-1. Review the first application flow and fix usability or verification gaps.
-2. Add authenticated accounts and private, encrypted resume handling only if needed.
-3. Add transparent resume-to-job matching and application tracking.
-4. Connect additional job platforms only through approved APIs, partner feeds, or user-directed workflows.
-5. Consider application automation only where the provider explicitly permits it and the user authorizes each submission.
+The local frontend calls `http://localhost:8000` by default. API documentation is available at `/docs`.
+
+## Next hardening steps
+
+1. Add real account authentication and enforce per-user ownership on every API.
+2. Add durable, private resume storage only after access control and retention rules are in place.
+3. Improve resume parsing and explainable skill/job matching.
+4. Add integrations only through approved APIs, partner feeds, or user-directed workflows.
+5. Enable rule-based automatic submission only for providers that explicitly permit it, with user authorization and sensitive-answer safeguards.
