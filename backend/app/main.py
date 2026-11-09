@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import create_engine, String, Integer, Date, Text, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
-from .providers import GREENHOUSE_BOARDS, LEVER_SITES, search_public_company_boards
+from .providers import GREENHOUSE_BOARDS, LEVER_SITES, search_public_company_boards, _is_us_location
 from .verification import verify_job_listing
 
 app=FastAPI(title="Nova Career Intelligence API",version="0.6.0")
@@ -58,8 +58,9 @@ class JobSearchRequest(BaseModel):
     @field_validator("location")
     @classmethod
     def us_only(cls,v):
-        if v.strip().lower() not in {"united states","usa","us"}: raise ValueError("Only United States job search is enabled in this phase.")
-        return "United States"
+        if v.strip().lower() in {"united states","usa","us"}: return "United States"
+        if not _is_us_location(v): raise ValueError("Enter United States or a US city and state, such as Dallas, TX.")
+        return v.strip()
 class JobVerificationRequest(BaseModel):
     job_id:str=Field(min_length=1,max_length=300)
     url:str=Field(min_length=8,max_length=2000)
