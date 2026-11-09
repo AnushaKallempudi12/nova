@@ -92,11 +92,23 @@ async def verify_job_listing(job_id: str, submitted_url: str, submitted_title: s
     # Greenhouse now serves some hosted job pages from job-boards.greenhouse.io,
     # while older listings and feeds may still use boards.greenhouse.io.
     # Match exact hostnames (never suffix/lookalike domains) and the board slug.
-    allowed_hosts = {"boards.greenhouse.io", "job-boards.greenhouse.io"} if provider == "greenhouse" else {"jobs.lever.co"}
+    ats_hosts = {"boards.greenhouse.io", "job-boards.greenhouse.io"} if provider == "greenhouse" else {"jobs.lever.co"}
+    # Some employers use a custom careers domain as the Greenhouse-hosted
+    # application URL. Trust that host only when it is the curated official
+    # company domain, then require an exact match with the live ATS feed below.
+    allowed_hosts = set(ats_hosts)
+    if official_domain:
+        allowed_hosts.add(official_domain)
     submitted_host = (submitted.hostname or "").lower().rstrip(".")
     path_slug = (submitted.path.strip("/").split("/") or [""])[0]
+    is_ats_host = submitted_host in ats_hosts
+    allowed_host = submitted_host
 
-    if submitted.scheme.lower() != "https" or submitted_host not in allowed_hosts or path_slug.lower() != slug.lower():
+    if (
+        submitted.scheme.lower() != "https"
+        or submitted_host not in allowed_hosts
+        or (is_ats_host and path_slug.lower() != slug.lower())
+    ):
         expected_hosts = " or ".join(sorted(allowed_hosts))
         return {
             "status": "High risk",
@@ -149,7 +161,7 @@ async def verify_job_listing(job_id: str, submitted_url: str, submitted_title: s
 
         checks = [
             {"name": "Live employer listing", "status": "pass", "detail": f"The exact job ID, title, and application URL were confirmed in {provider.title()}'s live public feed for {expected_company}."},
-            {"name": "Application destination", "status": "pass", "detail": f"The link uses HTTPS on the expected {allowed_host} employer board."},
+            {"name": "Application destination", "status": "pass", "detail": f"The link uses HTTPS on the expected {allowed_host} employer board or curated company careers domain."},
         ]
         warnings = []
         if official_domain:
