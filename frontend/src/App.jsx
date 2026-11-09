@@ -12,7 +12,7 @@ const platforms = [
   { id:"other", name:"Other supported portals", detail:"Additional sources when an approved connection exists", search:"Depends", apply:"Depends" }
 ];
 const defaults = { role:"Software Engineer, Java Developer, Backend Engineer, SDET", location:"United States", work:["Remote","Nationwide"], experience:"Early career / 1–3 years" };
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000").replace(/\\/$/, "");
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
 
 export default function App() {
