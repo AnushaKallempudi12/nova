@@ -1,0 +1,126 @@
+import asyncio
+import html
+import os
+import re
+from typing import Any
+
+import httpx
+
+TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
+GREENHOUSE_BOARDS = [
+    value.strip() for value in os.getenv("GREENHOUSE_BOARD_TOKENS", "").split(",")
+    if value.strip() and TOKEN_PATTERN.fullmatch(value.strip())
+][:25]
+LEVER_SITES = [
+    value.strip() for value in os.getenv("LEVER_SITE_NAMES", "").split(",")
+    if value.strip() and TOKEN_PATTERN.fullmatch(value.strip())
+][:25]
+
+
+def _plain_text(value: str | None) -> str:
+    if not value:
+        return ""
+    return re.sub(r"\\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", value))).strip()
+
+
+def _matches(job: dict[str, Any], query: str, location: str) -> bool:
+    searchable = " ".join(str(job.get(key, "")) for key in ("title", "description", "company")).lower()
+    phrases = [part.strip().lower() for part in query.split(",") if part.strip()]
+    if phrases and not any(phrase in searchable for phrase in phrases):
+        return False
+    wanted_location = location.strip().lower()
+    actual_location = str(job.get("location", "")).lower()
+    if wanted_location and wanted_location not in {"united states", "usa", "us", "nationwide", "remote + nationwide"}:
+        if wanted_location == "remote":
+            return "remote" in actual_location
+        if wanted_location not in actual_location and "remote" not in actual_location:
+            return False
+    return True
+
+
+async def _greenhouse(client: httpx.AsyncClient, board: str, query: str, location: str) -> tuple[list[dict], dict]:
+    url = f"https://boards-api.greenhouse.io/v1/boards/{board}/jobs?content=true"
+    response = await client.get(url)
+    response.raise_for_status()
+    payload = response.json()
+    jobs = []
+    for item in payload.get("jobs", []):
+        location_name = (item.get("location") or {}).get("name", "")
+        job = {
+            "id": f"greenhouse:{board}:{item.get('id')}",
+            "title": item.get("title", "Untitled role"),
+            "company": board.replace("-", " ").replace("_", " ").title(),
+            "location": location_name,
+            "description": _plain_text(item.get("content", ""))[:1200],
+            "url": item.get("absolute_url", ""),
+            "source": "Greenhouse",
+            "updated_at": item.get("updated_at"),
+        }
+        if job["url"].startswith("https://") and _matches(job, query, location):
+            jobs.append(job)
+    return jobs, {"provider": "Greenhouse", "board": board, "status": "ok", "count": len(jobs)}
+
+
+async def _lever(client: httpx.AsyncClient, site: str, query: str, location: str) -> tuple[list[dict], dict]:
+    url = f"https://api.lever.co/v0/postings/{site}?mode=json"
+    response = await client.get(url)
+    response.raise_for_status()
+    payload = response.json()
+    jobs = []
+    for item in payload if isinstance(payload, list) else []:
+        categories = item.get("categories") or {}
+        job = {
+            "id": f"lever:{site}:{item.get('id')}",
+            "title": item.get("text", "Untitled role"),
+            "company": site.replace("-", " ").replace("_", " ").title(),
+            "location": categories.get("location", ""),
+            "description": _plain_text(item.get("descriptionPlain") or item.get("description", ""))[:1200],
+            "url": item.get("hostedUrl") or item.get("applyUrl") or "",
+            "source": "Lever",
+            "updated_at": item.get("createdAt"),
+        }
+        if job["url"].startswith("https://") and _matches(job, query, location):
+            jobs.append(job)
+    return jobs, {"provider": "Lever", "site": site, "status": "ok", "count": len(jobs)}
+
+
+async def search_public_company_boards(query: str, location: str, limit: int = 50) -> dict:
+    jobs: list[dict] = []
+    statuses: list[dict] = []
+    configured = len(GREENHOUSE_BOARDS) + len(LEVER_SITES)
+    if not configured:
+        return {
+            "jobs": [],
+            "sources_checked": [],
+            "configured_sources": 0,
+            "message": "No company career boards are configured yet. Add Greenhouse board tokens and/or Lever site names to the backend environment."
+        }
+
+    timeout = httpx.Timeout(12.0, connect=5.0)
+    semaphore = asyncio.Semaphore(5)
+
+    async with httpx.AsyncClient(timeout=timeout, headers={"Accept": "application/json", "User-Agent": "NovaCareerSearch/0.1"}) as client:
+        async def safe_call(provider: str, identifier: str):
+            async with semaphore:
+                try:
+                    if provider == "Greenhouse":
+                        return await _greenhouse(client, identifier, query, location)
+                    return await _lever(client, identifier, query, location)
+                except (httpx.HTTPError, ValueError, KeyError) as exc:
+                    return [], {"provider": provider, "board": identifier, "status": "error", "message": str(exc)[:180]}
+
+        tasks = [safe_call("Greenhouse", token) for token in GREENHOUSE_BOARDS]
+        tasks += [safe_call("Lever", site) for site in LEVER_SITES]
+        results = await asyncio.gather(*tasks)
+
+    for source_jobs, status in results:
+        jobs.extend(source_jobs)
+        statuses.append(status)
+
+    jobs.sort(key=lambda item: item.get("updated_at") or "", reverse=True)
+    return {
+        "jobs": jobs[:max(1, min(limit, 100))],
+        "sources_checked": statuses,
+        "configured_sources": configured,
+        "message": f"Found {len(jobs)} matching published roles across configured public career boards."
+    }
