@@ -133,7 +133,7 @@ export default function App() {
     let emailStatus = "review";
     let emailDetail = "No recruiter email was supplied. Verify the contact through the employer's official website.";
     if (email) {
-      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         emailStatus = "fail";
         emailDetail = "This does not look like a valid email address.";
       } else if (domain && (emailDomain === domain || emailDomain.endsWith("." + domain))) {
@@ -153,7 +153,7 @@ export default function App() {
       try {
         const profileUrl = new URL(recruiterProfile.trim());
         const validHost = profileUrl.protocol === "https:" && ["linkedin.com","www.linkedin.com"].includes(profileUrl.hostname.toLowerCase());
-        const validPath = /^\\/(in|company)\\//.test(profileUrl.pathname);
+        const validPath = /^\/(in|company)\//.test(profileUrl.pathname);
         if (validHost && validPath) {
           profileStatus = "review";
           profileDetail = "The link uses a LinkedIn profile/company URL format. Nova cannot confirm the profile owner, employment, or authenticity.";
