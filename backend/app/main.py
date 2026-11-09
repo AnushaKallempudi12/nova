@@ -12,7 +12,7 @@ from datetime import date, datetime
 from .providers import GREENHOUSE_BOARDS, LEVER_SITES, search_public_company_boards
 from .verification import verify_job_listing
 
-app = FastAPI(title="Nova Career Intelligence API", version="0.4.0")
+app = FastAPI(title="Nova Career Intelligence API", version="0.4.1")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./nova.db")
 if DATABASE_URL.startswith("postgres://"):
@@ -128,7 +128,7 @@ class JobVerificationRequest(BaseModel):
 def root():
     if FRONTEND_DIST.joinpath("index.html").is_file():
         return FileResponse(FRONTEND_DIST / "index.html")
-    return {"name": "Nova Career Intelligence", "status": "api-ready", "version": "0.3.0"}
+    return {"name": "Nova Career Intelligence", "status": "api-ready", "version": "0.4.1"}
 
 
 @app.get("/api/v1/applications")
