@@ -12,6 +12,7 @@ const platforms = [
   { id:"other", name:"Other supported portals", detail:"Additional sources when an approved connection exists", search:"Depends", apply:"Depends" }
 ];
 const defaults = { role:"Software Engineer, Java Developer, Backend Engineer, SDET", location:"United States", work:["Remote","Nationwide"], experience:"Early career / 1–3 years" };
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000").replace(/\\/$/, "");
 const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
 
 export default function App() {
@@ -21,6 +22,31 @@ export default function App() {
   const [active,setActive] = useState("Overview");
   const [saved,setSaved] = useState(false);
   const [notice,setNotice] = useState("");
+  const [apiStatus,setApiStatus] = useState("checking");
+  const [apiMessage,setApiMessage] = useState("Checking Nova API");
+  const [platformCatalog,setPlatformCatalog] = useState([]);
+  useEffect(() => {
+    const controller = new AbortController();
+    async function connectApi() {
+      try {
+        const [healthResponse, platformResponse] = await Promise.all([
+          fetch(`${API_BASE}/health`, { signal: controller.signal }),
+          fetch(`${API_BASE}/api/v1/platforms`, { signal: controller.signal })
+        ]);
+        if (!healthResponse.ok || !platformResponse.ok) throw new Error("API returned an unsuccessful response");
+        const [health, catalog] = await Promise.all([healthResponse.json(), platformResponse.json()]);
+        setPlatformCatalog(Array.isArray(catalog.platforms) ? catalog.platforms : []);
+        setApiStatus("connected");
+        setApiMessage(`API connected · ${health.status || "healthy"}`);
+      } catch (error) {
+        if (error.name === "AbortError") return;
+        setApiStatus("offline");
+        setApiMessage("API unavailable · Start the FastAPI service to connect");
+      }
+    }
+    connectApi();
+    return () => controller.abort();
+  }, []);
   useEffect(()=>localStorage.setItem("nova-platforms",JSON.stringify(selected)),[selected]);
   useEffect(()=>localStorage.setItem("nova-preferences",JSON.stringify(prefs)),[prefs]);
   const chosen = useMemo(()=>platforms.filter(p=>selected.includes(p.id)),[selected]);
@@ -30,7 +56,7 @@ export default function App() {
   const nav = [{name:"Overview",icon:LayoutDashboard},{name:"Resume",icon:FileText},{name:"Job platforms",icon:BriefcaseBusiness},{name:"Preferences",icon:Settings2}];
   return <div className="shell">
     <aside className="sidebar"><a className="brand" href="#"><span className="brand-mark">N</span><span>nova<span className="brand-dot">.</span><small>CAREER INTELLIGENCE</small></span></a><div className="workspace-label">WORKSPACE</div><nav>{nav.map(({name,icon:Icon})=><button key={name} className={active===name?"nav-item active":"nav-item"} onClick={()=>{setActive(name);document.getElementById(name.toLowerCase().replace(" ","-"))?.scrollIntoView({behavior:"smooth"});}}><Icon size={17}/>{name}<ChevronRight size={15}/></button>)}</nav><div className="sidebar-bottom"><div className="secure-icon"><ShieldCheck size={18}/></div><strong>Your search, your control</strong><p>Review every opportunity before you take action.</p><span className="local-tag"><span/> Browser preview</span></div></aside>
-    <main className="main"><header className="topbar"><div><span className="eyebrow">CAREER WORKSPACE</span><h1>Find your next opportunity.</h1><p>Bring your experience and goals together in one focused search space.</p></div><div className="avatar">N</div></header>
+    <main className="main"><header className="topbar"><div><span className="eyebrow">CAREER WORKSPACE</span><h1>Find your next opportunity.</h1><p>Bring your experience and goals together in one focused search space.</p></div><div className="topbar-actions"><span className={`api-status ${apiStatus}`} title={apiMessage}><i/>{apiStatus==="checking"?"Checking API":apiStatus==="connected"?"API connected":"API offline"}</span><div className="avatar">N</div></div></header>
       <section className="hero"><div className="hero-copy"><span className="pill"><Activity size={13}/> YOUR CAREER, IN FOCUS</span><h2>Make your next move<br/><em>with confidence.</em></h2><p>Set your direction, choose where Nova should look, and keep your applications organized.</p><button className="primary" onClick={()=>{setActive("Job platforms");document.getElementById("job-platforms").scrollIntoView({behavior:"smooth"});}}>Configure job sources <ArrowUpRight size={16}/></button></div><div className="hero-art"><div className="orbit orbit-one"/><div className="orbit orbit-two"/><div className="orbit-core"><Search size={35}/></div><div className="float-card fc-one"><span className="mini-icon"><BriefcaseBusiness size={15}/></span><span><b>Role matching</b><small>Preference-led</small></span></div><div className="float-card fc-two"><span className="mini-check"><Check size={15}/></span><span><b>You stay in control</b><small>Review before applying</small></span></div></div></section>
       <section className="stats"><div className="stat"><span>Selected platforms</span><b>{selected.length}<small> / 8</small></b><p>Sources in your workspace</p></div><div className="stat"><span>Resume</span><b className="stat-word">{resume?"Added":"Not added"}</b><p>{resume?resume.name:"Upload to prepare your profile"}</p></div><div className="stat"><span>Search coverage</span><b className="stat-word">US-wide</b><p>Remote + nationwide roles</p></div></section>
       <section className="content-grid"><div className="panel resume-panel" id="resume"><div className="section-head"><div><span className="eyebrow">STEP 01</span><h3>Your resume</h3><p>Start with the experience you want employers to see.</p></div><FileText size={20}/></div><label className="upload-zone"><input type="file" accept=".pdf,.doc,.docx" onChange={onFile}/><span className="upload-icon"><UploadCloud size={22}/></span><b>{resume?"Choose a different resume":"Upload your resume"}</b><span>PDF, DOC or DOCX · up to 10 MB</span><small>Click to browse files</small></label>{resume&&<div className="file-row"><FileText size={17}/><span><b>{resume.name}</b><small>{resume.size} · Selected locally</small></span><button aria-label="Remove resume" onClick={()=>setResume(null)}><X size={16}/></button></div>}<p className="privacy-note"><ShieldCheck size={14}/> Preview only: the file stays on your device and is not uploaded or analyzed yet.</p>{notice&&<p className="notice">{notice}</p>}</div>
