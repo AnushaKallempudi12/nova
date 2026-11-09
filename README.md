@@ -10,10 +10,11 @@ Nova is a responsive job-search workspace with a **verify-first, one-application
 - Exact job-ID, title, employer-board, and application-URL recheck against the live public provider feed.
 - Curated company-domain reachability check for the initial employer registry.
 - Scam-signal warnings for payment requests, gift cards, money transfers, and messaging-only interview instructions in the published description.
+- Optional recruiter screening that compares an email domain with the curated company domain, flags common personal email providers, and checks whether a supplied profile link uses a standard LinkedIn URL format.
 - One-at-a-time pilot flow for a listing that passes the source checks. The user opens and submits on the employer's application page.
 
 ## Verification limits
-A "Verified source" result means Nova matched the exact job to the employer's live public ATS feed, confirmed the expected ATS destination, and reached the curated company website. It is **not a guarantee** that every recruiter, email, message, or interview contact is genuine. Nova does not verify recruiter identity, conduct background checks, or certify that an employer is safe. A listing that cannot be independently checked is marked "Needs review"; a mismatch or strong scam signal is blocked as "High risk".
+A "Verified source" result means Nova matched the exact job to the employer's live public ATS feed, confirmed the expected ATS destination, and reached the curated company website. It is **not a guarantee** that every recruiter, email, message, or interview contact is genuine. Nova does not verify recruiter identity, prove ownership of an email account or LinkedIn profile, conduct background checks, or certify that an employer is safe. A matching email domain and a LinkedIn-looking URL are only preliminary signals. A listing that cannot be independently checked is marked "Needs review"; a mismatch or strong scam signal is blocked as "High risk".
 
 Never pay to apply, deposit a check, buy gift cards, or share banking credentials or sensitive identity data with an unverified contact. Verify recruiter contact details through the company's official website before sharing personal information.
 
