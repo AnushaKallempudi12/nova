@@ -89,18 +89,31 @@ async def verify_job_listing(job_id: str, submitted_url: str, submitted_title: s
     expected_company = COMPANY_NAMES.get(slug, slug.replace("-", " ").replace("_", " ").title())
     official_domain = COMPANY_DOMAINS.get(slug)
     submitted = urlparse(submitted_url)
-    allowed_host = "boards.greenhouse.io" if provider == "greenhouse" else "jobs.lever.co"
+    # Greenhouse now serves some hosted job pages from job-boards.greenhouse.io,
+    # while older listings and feeds may still use boards.greenhouse.io.
+    # Match exact hostnames (never suffix/lookalike domains) and the board slug.
+    allowed_hosts = {"boards.greenhouse.io", "job-boards.greenhouse.io"} if provider == "greenhouse" else {"jobs.lever.co"}
+    submitted_host = (submitted.hostname or "").lower().rstrip(".")
     path_slug = (submitted.path.strip("/").split("/") or [""])[0]
 
-    if submitted.scheme != "https" or submitted.hostname != allowed_host or path_slug.lower() != slug.lower():
+    if submitted.scheme.lower() != "https" or submitted_host not in allowed_hosts or path_slug.lower() != slug.lower():
+        expected_hosts = " or ".join(sorted(allowed_hosts))
         return {
             "status": "High risk",
             "risk_level": "high",
             "summary": "The application URL does not match the employer board configured for this listing.",
-            "checks": [{"name": "Application destination", "status": "fail", "detail": f"Expected an HTTPS URL on {allowed_host} for board {slug}."}],
+            "checks": [{"name": "Application destination", "status": "fail", "detail": f"Expected an HTTPS URL on {expected_hosts} for board {slug}."}],
             "warnings": ["The URL supplied by the browser does not match Nova's source record. Do not proceed."],
             "apply_url": None,
         }
+
+    def _canonical_job_url(value: str) -> tuple[str, str, str]:
+        parsed = urlparse(value)
+        return (
+            parsed.scheme.lower(),
+            (parsed.hostname or "").lower().rstrip("."),
+            parsed.path.rstrip("/"),
+        )
 
     timeout = httpx.Timeout(10.0, connect=5.0)
     async with httpx.AsyncClient(timeout=timeout, headers={"Accept": "application/json", "User-Agent": "NovaJobVerification/1.0"}) as client:
@@ -124,7 +137,7 @@ async def verify_job_listing(job_id: str, submitted_url: str, submitted_title: s
         live_url = live_url or ""
         live_company = expected_company
 
-        if live_url != submitted_url or (live_title or "").strip().casefold() != submitted_title.strip().casefold() or live_company.strip().casefold() != submitted_company.strip().casefold():
+        if _canonical_job_url(live_url) != _canonical_job_url(submitted_url) or (live_title or "").strip().casefold() != submitted_title.strip().casefold() or live_company.strip().casefold() != submitted_company.strip().casefold():
             return {
                 "status": "High risk",
                 "risk_level": "high",
