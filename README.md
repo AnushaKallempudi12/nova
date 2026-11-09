@@ -32,7 +32,15 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-Frontend defaults to `http://localhost:5173`; API defaults to `http://localhost:8000`.
+Frontend defaults to `http://localhost:5173`; API defaults to `http://localhost:8000`. Set `VITE_API_BASE_URL` in the frontend environment when the API is hosted elsewhere. Set `NOVA_ALLOWED_ORIGINS` in the backend environment to a comma-separated list of trusted frontend origins.
+
+## Integration roadmap
+1. Connect a reviewed, approved job-data provider and normalize results into a common job format.
+2. Add source-specific adapters only where provider terms and API access permit them.
+3. Add sign-in, private resume storage, and explicit consent before any resume leaves the browser.
+4. Add matching and saved-job workflows; keep application submission manual unless an authorized provider integration explicitly supports it.
+
+The frontend now checks the FastAPI `/health` and `/api/v1/platforms` endpoints on load and shows whether the API is reachable.
 
 ## Before public production use
 Add authentication and per-user authorization, private resume storage, encryption and retention controls, database-backed preferences, rate limits, audit logging, approved job-source integrations, secure secrets management, and tests. Never submit applications or answer eligibility questions without explicit user authorization and verified user-provided information.
