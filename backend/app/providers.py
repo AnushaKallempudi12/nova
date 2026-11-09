@@ -54,11 +54,19 @@ def _matches(job: dict[str, Any], query: str, location: str) -> bool:
         return False
     wanted_location = location.strip().lower()
     actual_location = str(job.get("location", "")).lower()
-    if wanted_location and wanted_location not in {"united states", "usa", "us", "nationwide", "remote + nationwide"}:
-        if wanted_location == "remote":
-            return "remote" in actual_location
-        if wanted_location not in actual_location and "remote" not in actual_location:
+    if wanted_location in {"india", "in"}:
+        india_markers = ("india", "bengaluru", "bangalore", "hyderabad", "pune", "mumbai", "gurugram", "gurgaon", "noida", "chennai", "kolkata", "delhi", "ahmedabad", "kochi")
+        if not any(marker in actual_location for marker in india_markers):
             return False
+    elif wanted_location in {"united states", "usa", "us"}:
+        us_state_codes = ("al","ak","az","ar","ca","co","ct","de","fl","ga","hi","id","il","in","ia","ks","ky","la","me","md","ma","mi","mn","ms","mo","mt","ne","nv","nh","nj","nm","ny","nc","nd","oh","ok","or","pa","ri","sc","sd","tn","tx","ut","vt","va","wa","wv","wi","wy","dc")
+        us_markers = ("united states", "usa", "u.s.", " us", "remote - us", "remote, us")
+        has_us_marker = any(marker in actual_location for marker in us_markers)
+        has_state_code = any(re.search(rf"(?:^|[, -]){code}(?:$|[, -])", actual_location) for code in us_state_codes)
+        if not has_us_marker and not has_state_code:
+            return False
+    elif wanted_location and wanted_location not in actual_location:
+        return False
     return True
 
 
