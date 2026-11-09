@@ -65,7 +65,7 @@ US_STATE_CODES = {
 
 
 def _is_us_location(value: str) -> bool:
-    normalized = re.sub(r"\\s+", " ", (value or "").strip().lower())
+    normalized = re.sub(r"\s+", " ", (value or "").strip().lower())
     if not normalized:
         return False
     if any(marker in normalized for marker in (
