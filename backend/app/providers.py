@@ -9,10 +9,7 @@ import httpx
 TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
 # Starter employers selected for broad software engineering opportunities.
 # Board identifiers were publicly verified on Greenhouse; availability is rechecked live per search.
-STARTER_GREENHOUSE_BOARDS = [
-    "coinbase", "stripe", "doordashusa", "airbnb", "discord",
-    "robinhood", "datadog", "andurilindustries", "spacex",
-]
+STARTER_GREENHOUSE_BOARDS = ["coinbase"]  # one-employer pilot; expand only after the first application is reviewed
 GREENHOUSE_BOARDS = [
     value.strip() for value in os.getenv(
         "GREENHOUSE_BOARD_TOKENS", ",".join(STARTER_GREENHOUSE_BOARDS)
