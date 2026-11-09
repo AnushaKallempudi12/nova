@@ -10,3 +10,18 @@
 
 
 .recruiter-check{margin:13px 0;padding:13px;border:1px solid #2a4059;background:#0d1a2a;border-radius:9px}.recruiter-check h4{font:700 12px Manrope;margin:0 0 5px}.recruiter-check>p{font-size:9px;color:#8fa4bd;line-height:1.6;margin:0 0 10px}.recruiter-check label{display:block;font-size:9px;color:#9fb3c9;margin:9px 0}.recruiter-check input{display:block;width:100%;margin-top:5px;padding:9px;background:#091422;border:1px solid #30465f;border-radius:6px;color:#e4edf7;font-size:10px}.recruiter-check .secondary{margin-top:4px}.recruiter-results{margin-top:9px;padding:9px;border-radius:7px;background:#14253a}.recruiter-results p{font-size:9px;line-height:1.6;color:#b1c2d5;margin:4px 0}.recruiter-results .pass{color:#8ee0bb}.recruiter-results .fail{color:#f0a49a}.recruiter-results .review{color:#e7c77e}
+
+/* Compact, accessible platform checklist */
+.platform-list{display:grid;gap:7px}
+.platform-row{display:grid;grid-template-columns:20px minmax(180px,1fr) minmax(115px,.55fr) minmax(85px,.4fr);align-items:center;gap:12px;padding:12px 14px;border:1px solid #293a50;background:#0d1929;border-radius:8px;cursor:pointer;transition:border-color .15s,background .15s}
+.platform-row:hover{border-color:#4779a4;background:#112239}
+.platform-row.chosen{border-color:#386a98;background:#12243a}
+.platform-checkbox{width:16px;height:16px;margin:0;accent-color:#398bd1;cursor:pointer}
+.platform-copy{display:grid;gap:4px;min-width:0}
+.platform-name{font-size:11px;font-weight:700;color:#e3edf8}
+.platform-detail{font-size:9px;color:#8397af;line-height:1.4}
+.platform-capability{display:grid;gap:4px;min-width:0}
+.platform-capability small{font-size:8px;letter-spacing:.7px;color:#748aa5}
+.platform-capability b{font-size:9px;color:#a9c9e7;font-weight:600;overflow-wrap:anywhere}
+.platform-capability b.muted{color:#c8b88c}
+@media(max-width:650px){.platform-row{grid-template-columns:20px minmax(0,1fr) auto;gap:9px;padding:10px}.platform-copy{grid-column:2/4}.platform-capability{grid-row:2}.platform-capability:nth-last-child(2){grid-column:2}.platform-capability:last-child{grid-column:3}.platform-capability small{font-size:7px}.platform-capability b{font-size:8px}}
