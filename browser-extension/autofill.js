@@ -21,7 +21,7 @@
     if (sensitive.test(label)) return null;
     if (/first name|given name|forename/.test(label)) return "first_name";
     if (/last name|family name|surname/.test(label)) return "last_name";
-    if (/full name|your name|legal name/.test(label)) return "full_name";
+    if (/full name|your name|legal name/.test(label) || /^(name|applicant name)$/.test(label)) return "full_name";
     if (/email/.test(label)) return "email";
     if (/phone|mobile|telephone/.test(label)) return "phone";
     if (/address line|street address|mailing address/.test(label)) return "address";
