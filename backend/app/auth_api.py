@@ -467,7 +467,7 @@ Write a role-specific cover letter. Choose the strongest two or three truthful c
         if not content:
             raise ValueError("The AI provider returned an empty draft.")
         word_count=len(re.findall(r"\b[\w’'-]+\b",content))
-        if word_count<220 or word_count>390:
+        if word_count<250 or word_count>350:
             revise_prompt=("Revise the cover letter below to be between 250 and 350 words, excluding contact header and sign-off. "
                            "Keep every factual claim grounded in the supplied candidate evidence. Return only the revised letter.\n\n"+content)
             retry=httpx.post(
@@ -480,8 +480,10 @@ Write a role-specific cover letter. Choose the strongest two or three truthful c
             retry.raise_for_status()
             revised=retry.json()["choices"][0]["message"]["content"].strip()
             revised_count=len(re.findall(r"\b[\w’'-]+\b",revised))
-            if revised and 220<=revised_count<=390:
+            if revised and 250<=revised_count<=350:
                 content=revised
+            else:
+                raise ValueError("The AI provider did not produce a draft within the requested 250–350 word range.")
         header=[name]
         if location: header.append(location)
         if contact_line: header.append(contact_line)
