@@ -442,7 +442,7 @@ def _call_cover_letter_model(system_prompt:str,user_prompt:str,*,temperature:flo
                     )
                     if response.status_code not in {500,502,503,504} or attempt==2:
                         break
-                except (httpx.TimeoutException,httpx.ConnectError):
+                except httpx.RequestError:
                     if attempt==2:
                         raise
                 time.sleep(0.8*(attempt+1))
