@@ -171,9 +171,43 @@ async def parse_resume(file:UploadFile=File(...)):
     references=[]
     for label,patterns in [("Professional experience",[r"\bexperience\b",r"\bemployment\b",r"\bwork history\b"]),("Education",[r"\beducation\b",r"\buniversity\b",r"\bcollege\b"]),("Projects",[r"\bprojects?\b",r"\bportfolio\b"]),("Certifications",[r"\bcertifications?\b",r"\blicenses?\b"]),("Technical skills",[r"\bskills\b",r"\btechnologies\b"])]:
         if any(re.search(p,lower) for p in patterns): references.append(label)
+    def capture(pattern):
+        match=re.search(pattern,clean,re.I|re.M)
+        return match.group(1).strip(" \t|,;") if match else ""
+    lines=[line.strip() for line in clean.splitlines() if line.strip()]
+    linkedin_match=re.search(r"(?:https?://)?(?:www\\.)?linkedin\\.com/in/[A-Za-z0-9_%./-]+",clean,re.I)
+    github_match=re.search(r"(?:https?://)?(?:www\\.)?github\\.com/[A-Za-z0-9_-]+",clean,re.I)
+    name=""
+    for line in lines[:8]:
+        candidate=re.sub(r"[^A-Za-z .'-]","",line).strip()
+        if 2<=len(candidate.split())<=4 and not re.search(r"resume|curriculum|engineer|developer|linkedin|github",candidate,re.I):
+            name=candidate;break
+    name_parts=name.split()
+    education_section=re.search(r"(?is)(?:education|academic background)(.*?)(?:\\n\\s*(?:experience|work history|skills|projects|certifications)\\b|$)",clean)
+    education_text=education_section.group(1).strip() if education_section else ""
+    institution=""
+    if education_text:
+        for line in education_text.splitlines():
+            if re.search(r"university|college|institute|school",line,re.I):
+                institution=line.strip(" |,");break
+    degree_match=re.search(r"(?i)\\b(Bachelor(?:'s)?|Master(?:'s)?|B\\.S\\.|M\\.S\\.|B\\.Tech|M\\.Tech|Associate|Ph\\.D\\.)[^\\n|]*",education_text or clean)
+    year_match=re.search(r"(?i)(?:20\\d{2}|19\\d{2})(?:\\s*[-–—]\s*(?:20\\d{2}|present))?",education_text or clean)
+    parsed_profile={
+      "first_name":name_parts[0] if name_parts else "",
+      "last_name":" ".join(name_parts[1:]) if len(name_parts)>1 else "",
+      "email":email.group(0) if email else "",
+      "phone":phone.group(0) if phone else "",
+      "linkedin_url":("https://" if linkedin_match and not linkedin_match.group(0).lower().startswith("http") else "")+linkedin_match.group(0) if linkedin_match else "",
+      "github_url":("https://" if github_match and not github_match.group(0).lower().startswith("http") else "")+github_match.group(0) if github_match else "",
+      "institution_name":institution,
+      "degree":degree_match.group(0).strip() if degree_match else "",
+      "graduation_year":year_match.group(0) if year_match else "",
+      "technical_skills":", ".join(skills),
+      "experience_summary":""
+    }
     return {"file_name":filename,"word_count":len(clean.split()),"skills":skills,"email":email.group(0) if email else None,
-    "phone":phone.group(0) if phone else None,"references":references,"extracted_text":clean[:30000],
-    "message":"Text extraction completed. Skill and section detection is keyword-based; review before relying on it."}
+    "phone":phone.group(0) if phone else None,"references":references,"profile":parsed_profile,"extracted_text":clean[:30000],
+    "message":"Resume text extracted. Contact, education and profile fields are best-effort suggestions; review and correct them before use."}
 @app.post("/api/v1/search")
 async def search_jobs(request:JobSearchRequest):
     return await search_public_company_boards(query=request.query,location=request.location,limit=request.limit,selected_platforms=request.selected_platforms)
