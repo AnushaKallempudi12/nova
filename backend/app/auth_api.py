@@ -160,11 +160,11 @@ def delete_app(app_id:int,user=Depends(current_user)):
 
 def _resume_experience_evidence(resume_text: str, job_terms: list[str]) -> list[str]:
     """Select real experience bullets from the user's resume; never invent outcomes."""
-    lines=[re.sub(r"^\\s*[•●▪*-]+\\s*","",line).strip() for line in resume_text.splitlines()]
+    lines=[re.sub(r"^\s*[•●▪*-]+\s*","",line).strip() for line in resume_text.splitlines()]
     start_idx=None
-    end_markers=re.compile(r"^(education|academic background|technical skills|skills|projects|certifications|summary|professional summary)\\b",re.I)
+    end_markers=re.compile(r"^(education|academic background|technical skills|skills|projects|certifications|summary|professional summary)\b",re.I)
     for i,line in enumerate(lines):
-        if re.match(r"^(professional experience|work experience|experience|employment history|work history)\\b",line,re.I):
+        if re.match(r"^(professional experience|work experience|experience|employment history|work history)\b",line,re.I):
             start_idx=i+1
             break
     if start_idx is None:
@@ -173,9 +173,9 @@ def _resume_experience_evidence(resume_text: str, job_terms: list[str]) -> list[
     for line in lines[start_idx:]:
         if end_markers.match(line):
             break
-        if 45 <= len(line) <= 260 and not re.match(r"^(20\\d{2}|19\\d{2})\\s*[-–—]",line):
+        if 45 <= len(line) <= 260 and not re.match(r"^(20\d{2}|19\d{2})\s*[-–—]",line):
             section.append(line)
-    action=re.compile(r"\\b(develop|built|designed|implemented|automated|tested|maintained|created|improved|optimized|integrated|deployed|supported|analyzed|delivered|led|collaborated|resolved|reduced|increased)\\b",re.I)
+    action=re.compile(r"\b(develop|built|designed|implemented|automated|tested|maintained|created|improved|optimized|integrated|deployed|supported|analyzed|delivered|led|collaborated|resolved|reduced|increased)\b",re.I)
     candidates=[line for line in section if action.search(line)]
     if job_terms:
         matching=[line for line in candidates if any(term in line.lower() for term in job_terms)]
@@ -207,12 +207,12 @@ def generate_letter(payload:CoverLetterInput,user=Depends(current_user)):
         location=str(p.get("location") or "").strip()
         resume_text=resume.extracted_text or ""
         resume_skills=resume.skills or []
-        jd_text=re.sub(r"\\s+"," ",payload.job_description).strip()
+        jd_text=re.sub(r"\s+"," ",payload.job_description).strip()
         jd_lower=jd_text.lower()
         matching=[skill for skill in resume_skills if skill.lower() in jd_lower]
         job_terms=[term.lower() for term in matching]
         evidence=_resume_experience_evidence(resume_text,job_terms)
-        summary=re.sub(r"\\s+"," ",str(p.get("experience_summary",""))).strip()
+        summary=re.sub(r"\s+"," ",str(p.get("experience_summary",""))).strip()
         relevant=matching[:5]
         role=payload.role.strip()
         company=payload.company.strip()
@@ -241,7 +241,7 @@ def generate_letter(payload:CoverLetterInput,user=Depends(current_user)):
         header=[name]
         if location: header.append(location)
         if contact_line: header.append(contact_line)
-        content="\\n".join(header)+"\\n\\n"+salutation+"\\n\\n"+"\\n\\n".join(paragraphs)+"\\n\\nSincerely,\\n"+name
+        content="\n".join(header)+"\n\n"+salutation+"\n\n"+"\n\n".join(paragraphs)+"\n\nSincerely,\n"+name
         row=SavedCoverLetter(user_id=user["id"],title=f"{role} — {company or 'Cover Letter'}",
                              company=company,role=role,content=content)
         db.add(row);db.commit();db.refresh(row)
