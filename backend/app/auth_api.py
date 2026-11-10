@@ -158,51 +158,95 @@ def delete_app(app_id:int,user=Depends(current_user)):
         db.delete(r);db.commit()
         return {"deleted":True}
 
+def _resume_experience_evidence(resume_text: str, job_terms: list[str]) -> list[str]:
+    """Select real experience bullets from the user's resume; never invent outcomes."""
+    lines=[re.sub(r"^\\s*[•●▪*-]+\\s*","",line).strip() for line in resume_text.splitlines()]
+    start_idx=None
+    end_markers=re.compile(r"^(education|academic background|technical skills|skills|projects|certifications|summary|professional summary)\\b",re.I)
+    for i,line in enumerate(lines):
+        if re.match(r"^(professional experience|work experience|experience|employment history|work history)\\b",line,re.I):
+            start_idx=i+1
+            break
+    if start_idx is None:
+        return []
+    section=[]
+    for line in lines[start_idx:]:
+        if end_markers.match(line):
+            break
+        if 45 <= len(line) <= 260 and not re.match(r"^(20\\d{2}|19\\d{2})\\s*[-–—]",line):
+            section.append(line)
+    action=re.compile(r"\\b(develop|built|designed|implemented|automated|tested|maintained|created|improved|optimized|integrated|deployed|supported|analyzed|delivered|led|collaborated|resolved|reduced|increased)\\b",re.I)
+    candidates=[line for line in section if action.search(line)]
+    if job_terms:
+        matching=[line for line in candidates if any(term in line.lower() for term in job_terms)]
+        if matching:
+            candidates=matching
+    # Keep concise, source-grounded evidence and avoid duplicate bullets.
+    unique=[]
+    for line in candidates:
+        normalized=line.lower()
+        if normalized not in {x.lower() for x in unique}:
+            unique.append(line)
+        if len(unique)==3:
+            break
+    return unique
+
+
 @router.post("/cover-letters/generate")
 def generate_letter(payload:CoverLetterInput,user=Depends(current_user)):
     with SessionLocal() as db:
-        resume=db.get(UserResume,user["id"]);profile=db.get(UserProfile,user["id"])
+        resume=db.get(UserResume,user["id"])
+        profile=db.get(UserProfile,user["id"])
         if not resume:
             raise HTTPException(status_code=400,detail="Upload and save your resume before creating a cover letter.")
         p=profile.data if profile else {}
-        name=" ".join(x for x in [p.get("first_name","").strip(),p.get("last_name","").strip()] if x)
-        name=name or (p.get("full_name") or user.get("metadata",{}).get("full_name") or "").strip() or "Your Name"
+        name=" ".join(str(x).strip() for x in [p.get("first_name",""),p.get("last_name","")] if str(x).strip())
+        name=name or str(p.get("full_name") or user.get("metadata",{}).get("full_name") or "").strip() or "Your Name"
         contact=[p.get("email") or user.get("email",""),p.get("phone",""),p.get("linkedin_url",""),p.get("portfolio_url","")]
         contact_line=" | ".join(x.strip() for x in contact if isinstance(x,str) and x.strip())
-        location=(p.get("location") or "").strip()
-        skills=resume.skills or []
-        jd=payload.job_description.lower()
-        matching=[skill for skill in skills if skill.lower() in jd]
-        relevant=matching[:6] if matching else skills[:5]
-        if relevant:
-            skill_phrase=", ".join(relevant)
-            opening=(f"I am applying for the {payload.role} position"
-                     +(f" at {payload.company}" if payload.company.strip() else "")
-                     +f". My resume reflects hands-on experience with {skill_phrase}, which are relevant to this opportunity.")
-        else:
-            opening=(f"I am applying for the {payload.role} position"
-                     +(f" at {payload.company}" if payload.company.strip() else "")
-                     +". My professional background and project experience are described in the resume I have included.")
-        summary=re.sub(r"\s+"," ",str(p.get("experience_summary",""))).strip()
+        location=str(p.get("location") or "").strip()
+        resume_text=resume.extracted_text or ""
+        resume_skills=resume.skills or []
+        jd_text=re.sub(r"\\s+"," ",payload.job_description).strip()
+        jd_lower=jd_text.lower()
+        matching=[skill for skill in resume_skills if skill.lower() in jd_lower]
+        job_terms=[term.lower() for term in matching]
+        evidence=_resume_experience_evidence(resume_text,job_terms)
+        summary=re.sub(r"\\s+"," ",str(p.get("experience_summary",""))).strip()
+        relevant=matching[:5]
+        role=payload.role.strip()
+        company=payload.company.strip()
+        salutation=f"Dear Hiring Manager at {company}," if company else "Dear Hiring Manager,"
+        paragraphs=[
+            f"I’m writing to apply for the {role} position"+(f" at {company}." if company else ".")
+        ]
         if summary:
-            experience=("My experience includes "+summary.rstrip(".")+"." )
+            paragraphs.append(summary.rstrip(".")+"." )
+        elif relevant:
+            paragraphs.append("My background includes hands-on work with "+", ".join(relevant)+", which aligns with several of the technical requirements in your posting.")
         else:
-            experience=("My resume provides further detail about the projects, responsibilities and results behind my technical background.")
-        if matching:
-            alignment=("I was particularly interested in the role's requirements around "+", ".join(matching[:5])+
-                       ". These areas connect with skills already represented in my background, and I would welcome the chance to discuss specific examples.")
+            paragraphs.append("My experience and technical background are outlined in the resume included with my application.")
+        if evidence:
+            paragraphs.append("A few examples from my experience are:")
+            paragraphs.extend("• "+item for item in evidence[:3])
+        elif summary:
+            paragraphs.append("I would welcome the opportunity to discuss how this experience could support the team’s current priorities.")
         else:
-            alignment=("I have reviewed the responsibilities and qualifications in the job description. I would welcome the opportunity to explain how my experience and approach could support the team's needs.")
-        closing=("Thank you for considering my application. I would appreciate the opportunity to discuss the role and how I could contribute.")
+            paragraphs.append("I have kept this draft limited to the information available in your saved profile and resume. Add a short experience summary to your Career Profile to make the letter more specific; Nova will not invent projects, responsibilities or results.")
+        if relevant:
+            paragraphs.append("I was especially interested in the role’s focus on "+", ".join(relevant[:4])+". I would be glad to explain how I have applied these skills and how I could contribute to the team.")
+        else:
+            paragraphs.append("After reviewing the responsibilities in the posting, I would welcome a conversation about the experience and approach I could bring to the role.")
+        paragraphs.append("Thank you for your time and consideration. I look forward to the opportunity to discuss my application.")
         header=[name]
         if location: header.append(location)
         if contact_line: header.append(contact_line)
-        content="\n".join(header)+"\n\nDear Hiring Manager,\n\n"+opening+"\n\n"+experience+"\n\n"+alignment+"\n\n"+closing+"\n\nSincerely,\n"+name
-        row=SavedCoverLetter(user_id=user["id"],title=f"{payload.role} — {payload.company.strip() or 'Cover Letter'}",
-                             company=payload.company.strip(),role=payload.role,content=content)
+        content="\\n".join(header)+"\\n\\n"+salutation+"\\n\\n"+"\\n\\n".join(paragraphs)+"\\n\\nSincerely,\\n"+name
+        row=SavedCoverLetter(user_id=user["id"],title=f"{role} — {company or 'Cover Letter'}",
+                             company=company,role=role,content=content)
         db.add(row);db.commit();db.refresh(row)
         return {"id":row.id,"title":row.title,"content":row.content,
-                "notice":"Draft created using resume skills and the required job description. Review every detail before sending."}
+                "notice":"Draft tailored from the job description and evidence found in your saved resume/profile. Review all details before sending."}
 
 @router.get("/cover-letters")
 def list_letters(user=Depends(current_user)):
