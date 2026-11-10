@@ -425,7 +425,7 @@ def _call_cover_letter_model(system_prompt:str,user_prompt:str,*,temperature:flo
         if provider=="gemini":
             if not gemini_key:
                 raise HTTPException(status_code=503,detail="NOVA_AI_PROVIDER is set to gemini, but GEMINI_API_KEY is missing from the Nova backend Railway service.")
-            model=os.getenv("NOVA_GEMINI_MODEL","gemini-3.8-flash").strip()
+            model=os.getenv("NOVA_GEMINI_MODEL","gemini-3.5-flash").strip()
             endpoint=f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
             response=httpx.post(
                 endpoint,
@@ -469,7 +469,7 @@ def _call_cover_letter_model(system_prompt:str,user_prompt:str,*,temperature:flo
         if status==429:
             raise HTTPException(status_code=503,detail="The AI provider rate limit or billing quota was reached. Check the configured API account.")
         if provider=="gemini" and status==404:
-            raise HTTPException(status_code=503,detail="The configured Gemini model is unavailable to this API project. Nova now defaults to gemini-3.8-flash; remove an old NOVA_GEMINI_MODEL override or set it to a model enabled for your key.")
+            raise HTTPException(status_code=503,detail="The configured Gemini model is unavailable to this API project. Nova now defaults to gemini-3.5-flash; remove an old NOVA_GEMINI_MODEL override or set it to a model enabled for your key.")
         try:
             provider_error=exc.response.json().get("error",{}).get("message","")
         except (ValueError,TypeError):
