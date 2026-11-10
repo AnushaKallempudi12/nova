@@ -106,11 +106,12 @@ class ApplicationInput(BaseModel):
     interview_date:Optional[date]=None
     notes:str=Field(default="",max_length=5000)
 class CoverLetterInput(BaseModel):
-    company:str=Field(default="",max_length=200)
+    company:str=Field(min_length=1,max_length=200)
     role:str=Field(min_length=1,max_length=300)
     job_description:str=Field(min_length=80,max_length=12000)
     job_url:Optional[str]=Field(default=None,max_length=2000)
     research_company:bool=True
+    consent_ai_processing:bool=False
 class CoverLetterEdit(BaseModel):
     content:str=Field(min_length=20,max_length=20000)
 
@@ -500,6 +501,8 @@ Write a role-specific cover letter. Choose the strongest two or three truthful c
 
 @router.post("/cover-letters/generate")
 def generate_letter(payload:CoverLetterInput,user=Depends(current_user)):
+    if not payload.consent_ai_processing:
+        raise HTTPException(status_code=400,detail="Please confirm that Nova may send your resume, saved profile summary, and job description to its configured AI provider to create this draft.")
     with SessionLocal() as db:
         resume=db.get(UserResume,user["id"])
         profile=db.get(UserProfile,user["id"])
@@ -525,7 +528,8 @@ def generate_letter(payload:CoverLetterInput,user=Depends(current_user)):
         row=SavedCoverLetter(user_id=user["id"],title=f"{payload.role.strip()} — {company or 'Cover Letter'}",
                              company=company,role=payload.role.strip(),content=content)
         db.add(row);db.commit();db.refresh(row)
-        word_count=len(re.findall(r"\b[\w’'-]+\b",content))
+        body=content.split("\n\n",1)[-1].rsplit("\n\nSincerely,",1)[0]
+        word_count=len(re.findall(r"\b[\w’'-]+\b",body))
         return {"id":row.id,"title":row.title,"content":row.content,"word_count":word_count,
                 "ai_generated":True,"model":model,"research_used":bool(research_sources),
                 "research_sources":research_sources,
