@@ -228,6 +228,9 @@ async def search_public_company_boards(
         "ziprecruiter": "ZipRecruiter", "glassdoor": "Glassdoor",
         "monster": "Monster", "handshake": "Handshake", "usajobs": "USAJOBS",
         "flexjobs": "FlexJobs", "weworkremotely": "We Work Remotely",
+        "naukri": "Naukri", "foundit": "Foundit", "instahyre": "Instahyre",
+        "cutshort": "Cutshort", "hirist": "Hirist", "iimjobs": "IIMJobs",
+        "shine": "Shine", "timesjobs": "TimesJobs", "freshersworld": "Freshersworld", "apna": "Apna",
         "career": "Company career websites", "other": "Other supported portals",
     }
     selected = set(selected_platforms if selected_platforms is not None else
