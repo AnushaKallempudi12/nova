@@ -169,28 +169,26 @@ def _matches(job: dict[str, Any], query: str, location: str) -> bool:
     return not wanted or not actual or wanted in actual
 
 
-async def _google_cse(client: httpx.AsyncClient, query: str, location: str,
-                     limit: int, company_filter: str = "") -> tuple[list[dict], dict]:
-    api_key = os.getenv("GOOGLE_CSE_API_KEY", "").strip()
-    cx = os.getenv("GOOGLE_CSE_CX", "").strip()
-    if not api_key or not cx:
-        return [], {"provider": "Company Career Site Search", "status": "not_configured",
-                    "count": 0, "message": "Set GOOGLE_CSE_API_KEY and GOOGLE_CSE_CX to enable broad employer-site search."}
+async def _tavily_search(client: httpx.AsyncClient, query: str, location: str,
+                           limit: int, company_filter: str = "") -> tuple[list[dict], dict]:
+    """Discover public employer/ATS listings through Tavily when an API key is configured."""
+    api_key = os.getenv("TAVILY_API_KEY", "").strip()
+    if not api_key:
+        return [], {"provider": "Tavily Career Search", "status": "not_configured",
+                    "count": 0, "message": "Add TAVILY_API_KEY to enable broader employer and ATS job discovery."}
 
-    if company_filter.strip():
-        search_query = f'"{company_filter.strip()}" {query} jobs careers {location}'
-    else:
-        search_query = f"{query} jobs careers {location} -site:linkedin.com -site:indeed.com -site:glassdoor.com -site:ziprecruiter.com -site:monster.com -site:dice.com -site:wellfound.com -site:careerbuilder.com"
+    role_query = f'"{company_filter.strip()}" {query} jobs careers {location}' if company_filter.strip() else f'{query} jobs careers {location}'
+    search_query = role_query + " site:boards.greenhouse.io OR site:jobs.lever.co OR site:jobs.ashbyhq.com OR site:jobs.smartrecruiters.com OR site:myworkdayjobs.com OR site:icims.com OR site:careers."
     try:
-        response = await client.get(
-            "https://www.googleapis.com/customsearch/v1",
-            params={"key": api_key, "cx": cx, "q": search_query,
-                    "num": min(10, max(1, limit))},
+        response = await client.post(
+            "https://api.tavily.com/search",
+            json={"api_key": api_key, "query": search_query, "search_depth": "basic",
+                  "max_results": min(20, max(5, limit)), "include_answer": False},
         )
         response.raise_for_status()
         payload = response.json()
-    except (httpx.HTTPError, ValueError) as exc:
-        return [], {"provider": "Company Career Site Search", "status": "error",
+    except (httpx.HTTPError, ValueError, TypeError) as exc:
+        return [], {"provider": "Tavily Career Search", "status": "error",
                     "count": 0, "message": str(exc)[:160]}
 
     ats_hosts = (
@@ -199,82 +197,52 @@ async def _google_cse(client: httpx.AsyncClient, query: str, location: str,
         "myworkdayjobs.com", "icims.com", "oraclecloud.com", "workable.com",
         "recruitee.com", "teamtailor.com", "bamboohr.com",
     )
-    excluded_hosts = {
-        "linkedin.com", "indeed.com", "glassdoor.com", "ziprecruiter.com",
-        "monster.com", "dice.com", "wellfound.com", "careerbuilder.com", "simplyhired.com",
-        "jooble.org", "talent.com", "adzuna.com", "jobcase.com", "lensa.com",
-        "builtin.com", "flexjobs.com", "weworkremotely.com",
-    }
     company_token = re.sub(r"[^a-z0-9]", "", company_filter.lower())
     jobs = []
-    for item in payload.get("items", []):
-        url = str(item.get("link") or "")
+    for item in payload.get("results", []):
+        url = str(item.get("url") or "")
         parsed = urlparse(url)
         host = (parsed.hostname or "").lower()
         if parsed.scheme != "https" or not host:
             continue
-        if any(_host_matches(host, blocked) for blocked in excluded_hosts):
+        registered = next((name for name, site in COMPANY_CAREER_SITES.items()
+                           if _host_matches(host, site["domain"])), None)
+        is_known_ats = any(_host_matches(host, ats) for ats in ats_hosts)
+        career_path = any(part in parsed.path.lower() for part in ("job", "career", "employment", "vacancy", "position"))
+        career_host = host.startswith("careers.") or host.startswith("jobs.")
+        if not (registered or is_known_ats or career_path or career_host):
             continue
-        registered_company = next((name for name, site in COMPANY_CAREER_SITES.items()
-                                   if _host_matches(host, site["domain"])), None)
-        is_known_ats = any(_host_matches(host, ats_host) for ats_host in ats_hosts)
         if company_filter.strip():
             host_token = re.sub(r"[^a-z0-9]", "", host)
-            company_matches_host = bool(company_token and company_token in host_token)
-            if not registered_company and not is_known_ats and not company_matches_host:
+            if not registered and not is_known_ats and company_token not in host_token:
                 continue
-            company = registered_company or company_filter.strip()
-        else:
-            career_path = any(part in parsed.path.lower() for part in ("job", "career", "employment", "vacancy"))
-            career_host = host.startswith("careers.") or host.startswith("jobs.")
-            if not registered_company and not is_known_ats and not career_path and not career_host:
-                continue
-            if registered_company:
-                company = registered_company
-            else:
-                meta = (item.get("pagemap") or {}).get("metatags") or []
-                meta = meta[0] if meta and isinstance(meta[0], dict) else {}
-                company = (meta.get("og:site_name") or meta.get("application-name")
-                           or meta.get("og:title") or "")
-                if not company:
-                    if host.endswith(".myworkdayjobs.com"):
-                        company = host.split(".")[0].replace("-", " ").title()
-                    elif host.endswith(".icims.com"):
-                        company = host.split(".")[0].replace("careers-", "").replace("-", " ").title()
-                    elif any(_host_matches(host, ats) for ats in ats_hosts):
-                        company = parsed.path.strip("/").split("/")[0].replace("-", " ").title()
-                    elif host.startswith("careers.") or host.startswith("jobs."):
-                        company = host.split(".")[1].replace("-", " ").title()
-                    else:
-                        company = host.split(":")[0].split(".")[0].replace("-", " ").title()
-
         title = _text(item.get("title"))
-        snippet = _text(item.get("snippet"))
-        job = {"title": title, "description": snippet, "company": company, "location": location}
-        if not title or not _matches(job, query, ""):
+        snippet = _text(item.get("content"))
+        if not title or not _matches({"title": title, "description": snippet, "company": registered or company_filter}, query, ""):
             continue
+        employer = registered or company_filter.strip()
+        if not employer:
+            employer = host.split(".")[0].replace("-", " ").title()
         jobs.append({
-            "id": f"cse:{re.sub(r'[^a-z0-9]+', '-', company.lower()).strip('-')}:"
+            "id": f"tavily:{re.sub(r'[^a-z0-9]+', '-', employer.lower()).strip('-')}:"
                   f"{hashlib.sha1(url.encode()).hexdigest()[:12]}",
-            "title": title[:300], "company": company, "location": location,
+            "title": title[:300], "company": employer, "location": location,
             "description": snippet[:1200], "url": url,
             "source": "Company Career Site", "updated_at": None,
-            "discovery_method": "Google Programmable Search",
-            "allowed_host": host,
+            "discovery_method": "Tavily Search", "allowed_host": host,
         })
-    return jobs, {"provider": "Company Career Site Search", "status": "ok",
-                  "count": len(jobs), "results_returned": len(payload.get("items", [])),
+    return jobs, {"provider": "Tavily Career Search", "status": "ok",
+                  "count": len(jobs), "results_returned": len(payload.get("results", [])),
                   "company_filter": company_filter or None}
-
 
 async def search_company_career_sites(client: httpx.AsyncClient, query: str, location: str,
                                       limit: int = 50, company: str = "") -> tuple[list[dict], list[dict]]:
-    """Search registered official employer sites via CSE and parse public JSON-LD."""
+    """Search registered official employer sites via Tavily and parse public JSON-LD."""
     jobs: list[dict] = []
     statuses: list[dict] = []
-    cse_jobs, cse_status = await _google_cse(client, query, location, limit, company)
-    jobs.extend(cse_jobs)
-    statuses.append(cse_status)
+    search_jobs, search_status = await _tavily_search(client, query, location, limit, company)
+    jobs.extend(search_jobs)
+    statuses.append(search_status)
 
     # Directly inspect each registered careers landing page for public JobPosting JSON-LD.
     # This is a best-effort fallback; many large employers render jobs client-side.
