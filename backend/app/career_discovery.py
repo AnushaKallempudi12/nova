@@ -166,7 +166,10 @@ def _matches(job: dict[str, Any], query: str, location: str) -> bool:
             "TX","UT","VT","VA","WA","WV","WI","WY","DC",
         }
         return any(part.strip().upper() in state_codes for part in actual.split(",")[1:])
-    return not wanted or not actual or wanted in actual
+    if not wanted or not actual:
+        return True
+    wanted_parts = [part.strip() for part in wanted.split(",") if part.strip()]
+    return all(part in actual for part in wanted_parts)
 
 
 async def _tavily_search(client: httpx.AsyncClient, query: str, location: str,
