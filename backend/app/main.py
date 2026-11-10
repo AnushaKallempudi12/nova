@@ -95,6 +95,16 @@ PLATFORMS=[
 {"id":"usajobs","name":"USAJOBS","search":"Official external search","application":"Manual"},
 {"id":"flexjobs","name":"FlexJobs","search":"Official external search","application":"Manual"},
 {"id":"weworkremotely","name":"We Work Remotely","search":"Official external search","application":"Manual"},
+{"id":"naukri","name":"Naukri","search":"Official external search","application":"Manual"},
+{"id":"foundit","name":"Foundit","search":"Official external search","application":"Manual"},
+{"id":"instahyre","name":"Instahyre","search":"Official external search","application":"Manual"},
+{"id":"cutshort","name":"Cutshort","search":"Official external search","application":"Manual"},
+{"id":"hirist","name":"Hirist","search":"Official external search","application":"Manual"},
+{"id":"iimjobs","name":"IIMJobs","search":"Official external search","application":"Manual"},
+{"id":"shine","name":"Shine","search":"Official external search","application":"Manual"},
+{"id":"timesjobs","name":"TimesJobs","search":"Official external search","application":"Manual"},
+{"id":"freshersworld","name":"Freshersworld","search":"Official external search","application":"Manual"},
+{"id":"apna","name":"Apna","search":"Official external search","application":"Manual"},
 {"id":"greenhouse","name":"Greenhouse career pages","search":"Public boards when configured","application":"Employer website"},
 {"id":"lever","name":"Lever career pages","search":"Public boards when configured","application":"Employer website"},
 {"id":"ashby","name":"Ashby career pages","search":"Public boards when configured","application":"Employer website"},
@@ -121,7 +131,7 @@ def get_config():
     "application_preparation_enabled":False,"application_submission_enabled":False,"provider_integrations_configured":n>0,"configured_public_boards":n,
     "configured_career_sites":len(COMPANY_CAREER_SITES),
     "company_site_search_api_configured":bool(os.getenv("GOOGLE_CSE_API_KEY") and os.getenv("GOOGLE_CSE_CX")),
-    "message":"Nova searches configured public ATS feeds and registered employer career sites. Broader Google-indexed career-site discovery requires Google Programmable Search configuration. Application submission remains user-controlled."}
+    "message":"Nova searches selected public ATS feeds and registered employer career pages first. Tavily is used only as a fallback when direct results are limited; application submission remains user-controlled."}
 @app.get("/api/v1/applications")
 def list_applications(workspace_id:str):
     with SessionLocal() as db:
