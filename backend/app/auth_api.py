@@ -62,6 +62,7 @@ class ApplicationDraft(Base):
     role:Mapped[str]=mapped_column(String(300))
     source:Mapped[str]=mapped_column(String(100),default="Company Career Site")
     job_url:Mapped[str]=mapped_column(String(2000))
+    application_url:Mapped[str]=mapped_column(String(2000),default="")
     job_description:Mapped[str]=mapped_column(Text,default="")
     fields:Mapped[dict]=mapped_column(JSON,default=dict)
     missing_fields:Mapped[list]=mapped_column(JSON,default=list)
@@ -117,13 +118,15 @@ class ApplicationPrepareInput(BaseModel):
     role:str=Field(min_length=1,max_length=300)
     source:str=Field(default="Company Career Site",max_length=100)
     job_url:str=Field(min_length=8,max_length=2000)
+    application_url:Optional[str]=Field(default=None,max_length=2000)
     job_description:str=Field(default="",max_length=12000)
-    @field_validator("job_url")
+    @field_validator("job_url","application_url")
     @classmethod
-    def require_https_job_url(cls,value):
+    def require_https_job_urls(cls,value):
+        if value is None: return value
         parsed=urlparse(value)
         if parsed.scheme.lower()!="https" or not parsed.hostname or parsed.username or parsed.password:
-            raise ValueError("The employer application URL must be a valid HTTPS link.")
+            raise ValueError("Employer job and application URLs must be valid HTTPS links.")
         return value
 
 class ApplicationDraftUpdate(BaseModel):
@@ -206,7 +209,7 @@ APPLICATION_FIELD_KEYS={
 
 def _draft_json(row:ApplicationDraft):
     return {"id":row.id,"application_id":row.application_id,"job_id":row.job_id,"company":row.company,"role":row.role,
-            "source":row.source,"job_url":row.job_url,"job_description":row.job_description,
+            "source":row.source,"job_url":row.job_url,"application_url":row.application_url or row.job_url,"job_description":row.job_description,
             "fields":row.fields or {},"missing_fields":row.missing_fields or [],
             "status":row.status,"created_at":row.created_at.isoformat() if row.created_at else None}
 
@@ -259,7 +262,7 @@ def prepare_application(payload:ApplicationPrepareInput,user=Depends(current_use
         draft=db.query(ApplicationDraft).filter_by(user_id=user["id"],job_url=payload.job_url).first()
         if draft is None:
             draft=ApplicationDraft(user_id=user["id"],application_id=application.id,job_id=payload.job_id,company=payload.company,
-                role=payload.role,source=payload.source,job_url=payload.job_url,
+                role=payload.role,source=payload.source,job_url=payload.job_url,application_url=payload.application_url or payload.job_url,
                 job_description=payload.job_description,fields=fields,missing_fields=missing,status=status)
             db.add(draft)
         else:
