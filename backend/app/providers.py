@@ -208,6 +208,28 @@ async def _ashby(client:httpx.AsyncClient,board:str,query:str,location:str):
             jobs.append(job)
     return jobs,{"provider":"Ashby","board":board,"status":"ok","count":len(jobs)}
 
+async def _confirm_job_page(client: httpx.AsyncClient, job: dict) -> bool:
+    """Only return jobs whose actual hosted application page is currently reachable."""
+    hosts = {
+        "Greenhouse": {"boards.greenhouse.io", "job-boards.greenhouse.io"},
+        "Lever": {"jobs.lever.co"},
+        "Ashby": {"jobs.ashbyhq.com"},
+    }.get(job.get("source"), set())
+    parsed = urlparse(job.get("url") or "")
+    if parsed.scheme.lower() != "https" or (parsed.hostname or "").lower() not in hosts:
+        return False
+    try:
+        response = await client.get(job["url"], follow_redirects=True)
+        final = urlparse(str(response.url))
+        return (
+            response.status_code < 400
+            and final.scheme.lower() == "https"
+            and (final.hostname or "").lower() in hosts
+        )
+    except (httpx.HTTPError, asyncio.TimeoutError, KeyError):
+        return False
+
+
 async def search_public_company_boards(query:str,location:str,limit:int=50,selected_platforms:list[str]|None=None)->dict:
     platform_names={
         "linkedin":"LinkedIn","indeed":"Indeed","dice":"Dice","wellfound":"Wellfound",
@@ -252,6 +274,23 @@ async def search_public_company_boards(query:str,location:str,limit:int=50,selec
         jobs.extend(rows)
         statuses.append(status)
     jobs.sort(key=lambda x:x.get("updated_at") or "",reverse=True)
-    return {"jobs":jobs[:max(1,min(limit,100))],"sources_checked":statuses,
+
+    # A job in an ATS feed can still point to a removed/expired hosted page.
+    # Check the actual page before exposing it in Find Jobs. A timeout, blocked
+    # response, non-ATS redirect, 404 or 410 is excluded rather than presented
+    # as an actionable listing.
+    availability_timeout = httpx.Timeout(8.0, connect=4.0)
+    async with httpx.AsyncClient(
+        timeout=availability_timeout,
+        headers={"Accept":"text/html,application/xhtml+xml","User-Agent":"Mozilla/5.0 NovaJobAvailability/1.0"},
+        follow_redirects=True,
+    ) as page_client:
+        checks = await asyncio.gather(*[
+            _confirm_job_page(page_client, job) for job in jobs[:max(1,min(limit,100))]
+        ])
+    checked_jobs = [job for job, available in zip(jobs, checks) if available]
+    excluded = len(checks) - len(checked_jobs)
+    return {"jobs":checked_jobs,"sources_checked":statuses,
             "configured_sources":configured,"external_platforms":external,
-            "message":f"Found {len(jobs)} matching published roles across {configured} configured employer boards."}
+            "availability_checked":len(checks),"unavailable_or_unconfirmed":excluded,
+            "message":f"Showing {len(checked_jobs)} jobs with reachable employer application pages. Excluded {excluded} unavailable or unconfirmed links."}
