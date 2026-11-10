@@ -5,8 +5,9 @@ from typing import Optional
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import String, Integer, Date, Text, JSON, func
+from sqlalchemy import String, Integer, Date, DateTime, Text, JSON, func
 from sqlalchemy.orm import Mapped, mapped_column
+from urllib.parse import urlparse
 from .main import Base, SessionLocal
 
 router=APIRouter(prefix="/api/v2",tags=["account workspace"])
@@ -51,6 +52,22 @@ class SavedCoverLetter(Base):
     content:Mapped[str]=mapped_column(Text)
     created_at:Mapped[datetime]=mapped_column(server_default=func.now())
 
+class ApplicationDraft(Base):
+    __tablename__="application_drafts"
+    id:Mapped[int]=mapped_column(Integer,primary_key=True,index=True)
+    user_id:Mapped[str]=mapped_column(String(128),index=True)
+    application_id:Mapped[Optional[int]]=mapped_column(Integer,nullable=True,index=True)
+    company:Mapped[str]=mapped_column(String(200))
+    role:Mapped[str]=mapped_column(String(300))
+    source:Mapped[str]=mapped_column(String(100),default="Company Career Site")
+    job_url:Mapped[str]=mapped_column(String(2000))
+    job_description:Mapped[str]=mapped_column(Text,default="")
+    fields:Mapped[dict]=mapped_column(JSON,default=dict)
+    missing_fields:Mapped[list]=mapped_column(JSON,default=list)
+    status:Mapped[str]=mapped_column(String(40),default="In Progress")
+    created_at:Mapped[datetime]=mapped_column(server_default=func.now())
+    updated_at:Mapped[datetime]=mapped_column(DateTime,server_default=func.now(),onupdate=func.now())
+
 async def current_user(authorization:Optional[str]=Header(default=None)):
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401,detail="Please sign in to continue.")
@@ -92,6 +109,25 @@ class CoverLetterInput(BaseModel):
     job_description:str=Field(min_length=80,max_length=12000)
 class CoverLetterEdit(BaseModel):
     content:str=Field(min_length=20,max_length=20000)
+
+class ApplicationPrepareInput(BaseModel):
+    job_id:str=Field(min_length=1,max_length=300)
+    company:str=Field(min_length=1,max_length=200)
+    role:str=Field(min_length=1,max_length=300)
+    source:str=Field(default="Company Career Site",max_length=100)
+    job_url:str=Field(min_length=8,max_length=2000)
+    job_description:str=Field(default="",max_length=12000)
+    @field_validator("job_url")
+    @classmethod
+    def require_https_job_url(cls,value):
+        parsed=urlparse(value)
+        if parsed.scheme.lower()!="https" or not parsed.hostname or parsed.username or parsed.password:
+            raise ValueError("The employer application URL must be a valid HTTPS link.")
+        return value
+
+class ApplicationDraftUpdate(BaseModel):
+    fields:dict=Field(default_factory=dict)
+    status:str=Field(default="Ready for Review",max_length=40)
 
 def app_json(r):
     return {"id":r.id,"company":r.company,"role":r.role,"status":r.status,"platform":r.platform,"job_url":r.job_url,
@@ -157,6 +193,137 @@ def delete_app(app_id:int,user=Depends(current_user)):
         if not r: raise HTTPException(status_code=404,detail="Application not found.")
         db.delete(r);db.commit()
         return {"deleted":True}
+
+APPLICATION_WORKFLOW_STATUSES={"In Progress","Ready for Review","Awaiting Submission","Submitted"}
+APPLICATION_FIELD_KEYS={
+    "full_name","first_name","last_name","email","phone","location","address","city","state",
+    "postal_code","country","linkedin_url","github_url","portfolio_url","institution_name",
+    "degree","field_of_study","graduation_year","employer","job_title","employment_start",
+    "employment_end","experience_summary","technical_skills","certifications","skills",
+    "resume_filename",
+}
+
+def _draft_json(row:ApplicationDraft):
+    return {"id":row.id,"application_id":row.application_id,"company":row.company,"role":row.role,
+            "source":row.source,"job_url":row.job_url,"job_description":row.job_description,
+            "fields":row.fields or {},"missing_fields":row.missing_fields or [],
+            "status":row.status,"created_at":row.created_at.isoformat() if row.created_at else None}
+
+@router.post("/applications/prepare")
+def prepare_application(payload:ApplicationPrepareInput,user=Depends(current_user)):
+    with SessionLocal() as db:
+        profile=db.get(UserProfile,user["id"])
+        resume=db.get(UserResume,user["id"])
+        p=profile.data if profile else {}
+        first_name=str(p.get("first_name") or "").strip()
+        last_name=str(p.get("last_name") or "").strip()
+        full_name=" ".join(x for x in (first_name,last_name) if x).strip()
+        full_name=full_name or str(p.get("full_name") or user.get("metadata",{}).get("full_name") or "").strip()
+        fields={
+            "full_name":full_name,"first_name":first_name,"last_name":last_name,
+            "email":str(p.get("email") or user.get("email") or "").strip(),
+            "phone":str(p.get("phone") or "").strip(),"location":str(p.get("location") or "").strip(),
+            "address":str(p.get("address") or "").strip(),"city":str(p.get("city") or "").strip(),
+            "state":str(p.get("state") or "").strip(),"postal_code":str(p.get("postal_code") or "").strip(),
+            "country":str(p.get("country") or "").strip(),"linkedin_url":str(p.get("linkedin_url") or "").strip(),
+            "github_url":str(p.get("github_url") or "").strip(),"portfolio_url":str(p.get("portfolio_url") or "").strip(),
+            "institution_name":str(p.get("institution_name") or "").strip(),"degree":str(p.get("degree") or "").strip(),
+            "field_of_study":str(p.get("field_of_study") or "").strip(),"graduation_year":str(p.get("graduation_year") or "").strip(),
+            "employer":str(p.get("employer") or "").strip(),"job_title":str(p.get("job_title") or "").strip(),
+            "employment_start":str(p.get("employment_start") or "").strip(),"employment_end":str(p.get("employment_end") or "").strip(),
+            "experience_summary":str(p.get("experience_summary") or "").strip(),
+            "technical_skills":str(p.get("technical_skills") or ", ".join(resume.skills if resume else [])).strip(),
+            "certifications":str(p.get("certifications") or "").strip(),
+            "skills":", ".join(resume.skills if resume else []),
+            "resume_filename":resume.file_name if resume else "",
+        }
+        missing=[]
+        if not fields["full_name"]: missing.append("full_name")
+        if not fields["email"]: missing.append("email")
+        if not fields["resume_filename"]: missing.append("resume")
+        status="In Progress" if missing else "Ready for Review"
+
+        application=db.query(UserApplication).filter_by(user_id=user["id"],job_url=payload.job_url).first()
+        if application is None:
+            application=UserApplication(user_id=user["id"],company=payload.company,role=payload.role,
+                status=status,platform=payload.source,job_url=payload.job_url,notes="Prepared with Nova; final submission requires user confirmation.")
+            db.add(application)
+            db.flush()
+        elif application.status in {"Saved","In Progress","Ready for Review","Awaiting Submission"}:
+            application.status=status
+            application.company=payload.company
+            application.role=payload.role
+            application.platform=payload.source
+
+        draft=db.query(ApplicationDraft).filter_by(user_id=user["id"],job_url=payload.job_url).first()
+        if draft is None:
+            draft=ApplicationDraft(user_id=user["id"],application_id=application.id,company=payload.company,
+                role=payload.role,source=payload.source,job_url=payload.job_url,
+                job_description=payload.job_description,fields=fields,missing_fields=missing,status=status)
+            db.add(draft)
+        else:
+            draft.application_id=application.id
+            draft.company=payload.company
+            draft.role=payload.role
+            draft.source=payload.source
+            draft.job_description=payload.job_description
+            draft.fields=fields
+            draft.missing_fields=missing
+            if draft.status!="Submitted": draft.status=status
+        db.commit()
+        db.refresh(draft)
+        return _draft_json(draft)
+
+@router.get("/applications/drafts/{draft_id}")
+def get_application_draft(draft_id:int,user=Depends(current_user)):
+    with SessionLocal() as db:
+        row=db.query(ApplicationDraft).filter_by(id=draft_id,user_id=user["id"]).first()
+        if not row: raise HTTPException(status_code=404,detail="Application draft not found.")
+        return _draft_json(row)
+
+@router.put("/applications/drafts/{draft_id}")
+def update_application_draft(draft_id:int,payload:ApplicationDraftUpdate,user=Depends(current_user)):
+    if payload.status not in APPLICATION_WORKFLOW_STATUSES:
+        raise HTTPException(status_code=422,detail="Unsupported application workflow status.")
+    cleaned={}
+    for key,value in payload.fields.items():
+        if key not in APPLICATION_FIELD_KEYS:
+            continue
+        if isinstance(value,(str,int,float,bool)) or value is None:
+            cleaned[key]=str(value).strip() if value is not None else ""
+    with SessionLocal() as db:
+        row=db.query(ApplicationDraft).filter_by(id=draft_id,user_id=user["id"]).first()
+        if not row: raise HTTPException(status_code=404,detail="Application draft not found.")
+        row.fields={**(row.fields or {}),**cleaned}
+        row.missing_fields=[]
+        if not row.fields.get("full_name"): row.missing_fields.append("full_name")
+        if not row.fields.get("email"): row.missing_fields.append("email")
+        if not row.fields.get("resume_filename"): row.missing_fields.append("resume")
+        row.status=payload.status
+        if row.application_id:
+            application=db.query(UserApplication).filter_by(id=row.application_id,user_id=user["id"]).first()
+            if application and application.status!="Submitted":
+                application.status=payload.status
+                application.notes="Application details prepared with Nova. Final submission remains user-controlled."
+        db.commit()
+        db.refresh(row)
+        return _draft_json(row)
+
+@router.post("/applications/drafts/{draft_id}/mark-submitted")
+def mark_application_submitted(draft_id:int,user=Depends(current_user)):
+    with SessionLocal() as db:
+        row=db.query(ApplicationDraft).filter_by(id=draft_id,user_id=user["id"]).first()
+        if not row: raise HTTPException(status_code=404,detail="Application draft not found.")
+        row.status="Submitted"
+        if row.application_id:
+            application=db.query(UserApplication).filter_by(id=row.application_id,user_id=user["id"]).first()
+            if application:
+                application.status="Submitted"
+                application.applied_date=date.today()
+                application.notes="User confirmed that the application was submitted on the employer website."
+        db.commit()
+        db.refresh(row)
+        return _draft_json(row)
 
 def _resume_experience_evidence(resume_text: str, job_terms: list[str]) -> list[str]:
     """Select real experience bullets from the user's resume; never invent outcomes."""
