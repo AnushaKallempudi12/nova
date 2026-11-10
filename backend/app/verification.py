@@ -87,6 +87,7 @@ async def verify_job_listing(job_id: str, submitted_url: str, submitted_title: s
         return {
             "status": "High risk",
             "risk_level": "high",
+            "company": submitted_company,
             "summary": "This listing does not match a currently configured, supported public employer board.",
             "checks": [{"name": "Published listing", "status": "fail", "detail": "The source identifier is not recognized by Nova."}],
             "warnings": ["Do not enter personal information or proceed with this application."],
@@ -147,6 +148,7 @@ async def verify_job_listing(job_id: str, submitted_url: str, submitted_title: s
             return {
                 "status": "Needs review",
                 "risk_level": "medium",
+                "company": submitted_company,
                 "summary": "Nova could not confirm that this exact role is still present in the employer's live public job feed.",
                 "checks": [{"name": "Published listing", "status": "review", "detail": "The employer board could not confirm this job ID. It may have expired or the provider may be temporarily unavailable."}],
                 "warnings": ["Do not apply until you confirm the role on the company's official careers page."],
