@@ -35,7 +35,7 @@ class Application(Base):
     notes:Mapped[str]=mapped_column(Text,default="")
     created_at:Mapped[datetime]=mapped_column(server_default=func.now())
 Base.metadata.create_all(bind=engine)
-STATUSES={"Applied","Pending","Responded","Interview","Rejected","Offer","Withdrawn"}
+STATUSES={"Saved","Applied","Pending","Responded","Interview","Rejected","Offer","Withdrawn"}
 class ApplicationInput(BaseModel):
     company:str=Field(min_length=1,max_length=200)
     role:str=Field(min_length=1,max_length=300)
@@ -55,6 +55,7 @@ class JobSearchRequest(BaseModel):
     query:str=Field(default="",max_length=300)
     location:str=Field(default="United States",max_length=120)
     limit:int=Field(default=50,ge=1,le=100)
+    selected_platforms:list[str]=Field(default_factory=list,max_length=20)
     @field_validator("location")
     @classmethod
     def us_only(cls,v):
@@ -175,7 +176,7 @@ async def parse_resume(file:UploadFile=File(...)):
     "message":"Text extraction completed. Skill and section detection is keyword-based; review before relying on it."}
 @app.post("/api/v1/search")
 async def search_jobs(request:JobSearchRequest):
-    return await search_public_company_boards(query=request.query,location=request.location,limit=request.limit)
+    return await search_public_company_boards(query=request.query,location=request.location,limit=request.limit,selected_platforms=request.selected_platforms)
 @app.post("/api/v1/verify-job")
 async def verify_job(request:JobVerificationRequest):
     return await verify_job_listing(job_id=request.job_id,submitted_url=request.url,submitted_title=request.title,submitted_company=request.company)
