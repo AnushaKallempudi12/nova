@@ -297,6 +297,11 @@ async def search_public_company_boards(
             jobs.extend(rows)
             statuses.append(status)
 
+        # Apply a requested employer filter before deciding whether broad fallback search is needed.
+        if company.strip():
+            company_key = re.sub(r"\\b(inc|incorporated|corp|corporation|llc|ltd|limited)\\b", "", company.lower()).strip()
+            jobs = [job for job in jobs if company_key in re.sub(r"\\b(inc|incorporated|corp|corporation|llc|ltd|limited)\\b", "", str(job.get("company", "")).lower()).strip()]
+
         if direct_sites_enabled:
             career_jobs, career_statuses = await search_company_career_sites(
                 client, query, location, limit=max(1, min(limit, 100)), company=company,
