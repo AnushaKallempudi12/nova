@@ -287,17 +287,20 @@ async def search_public_company_boards(
             else:
                 tasks.extend(call(provider, board) for board in boards)
 
-        if direct_sites_enabled:
-            career_jobs, career_statuses = await search_company_career_sites(
-                client, query, location, limit=max(1, min(limit, 100)), company=company
-            )
-            jobs.extend(career_jobs)
-            statuses.extend(career_statuses)
-
+        # Run selected direct ATS feeds first; Tavily is only eligible as a
+        # fallback when these feeds return fewer than five listings.
         results = await asyncio.gather(*tasks) if tasks else []
         for rows, status in results:
             jobs.extend(rows)
             statuses.append(status)
+
+        if direct_sites_enabled:
+            career_jobs, career_statuses = await search_company_career_sites(
+                client, query, location, limit=max(1, min(limit, 100)), company=company,
+                use_tavily=len(jobs) < min(5, limit),
+            )
+            jobs.extend(career_jobs)
+            statuses.extend(career_statuses)
 
     if company.strip():
         company_key = re.sub(r"\b(inc|incorporated|corp|corporation|llc|ltd|limited)\b", "", company.lower()).strip()
