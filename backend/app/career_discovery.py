@@ -211,7 +211,8 @@ async def _tavily_search(client: httpx.AsyncClient, query: str, location: str,
         registered = next((name for name, site in COMPANY_CAREER_SITES.items()
                            if _host_matches(host, site["domain"])), None)
         is_known_ats = any(_host_matches(host, ats) for ats in ats_hosts)
-        career_path = any(part in parsed.path.lower() for part in ("job", "career", "employment", "vacancy", "position"))
+        path_segments = {part.lower() for part in parsed.path.strip("/").split("/") if part}
+        career_path = bool(path_segments & {"jobs", "careers", "career", "employment", "vacancies", "positions", "openings"})
         career_host = host.startswith("careers.") or host.startswith("jobs.")
         if not (registered or is_known_ats or career_path or career_host):
             continue
