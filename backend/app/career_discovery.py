@@ -269,7 +269,7 @@ async def search_smartrecruiters(client: httpx.AsyncClient, query: str, location
                         "description": _text(item.get("jobAd", {}).get("sections", {}).get("jobDescription", {}).get("text", ""))[:1600],
                         "url": job_url,
                         "source": "SmartRecruiters",
-                        "updated_at": item.get("releasedDate"),
+                        "updated_at": item.get("releasedDate"),\n                        "allowed_host": (parsed.hostname or "").lower(),
                     }
                     if job["title"] and _matches(job, query, location):
                         rows.append(job)
