@@ -61,7 +61,7 @@ def _location(job: dict[str, Any]) -> str:
     if isinstance(locations, dict):
         locations = [locations]
     if isinstance(locations, str):
-        return _text(locations)
+        return "Remote" if locations.upper() == "TELECOMMUTE" else _text(locations)
     parts = []
     for item in locations if isinstance(locations, list) else []:
         address = item.get("address", item) if isinstance(item, dict) else {}
@@ -237,10 +237,12 @@ async def _google_cse(client: httpx.AsyncClient, query: str, location: str,
                 company = (meta.get("og:site_name") or meta.get("application-name")
                            or meta.get("og:title") or "")
                 if not company:
-                    if any(_host_matches(host, ats) for ats in ats_hosts):
-                        company = parsed.path.strip("/").split("/")[0].replace("-", " ").title()
-                    elif host.endswith(".myworkdayjobs.com"):
+                    if host.endswith(".myworkdayjobs.com"):
                         company = host.split(".")[0].replace("-", " ").title()
+                    elif host.endswith(".icims.com"):
+                        company = host.split(".")[0].replace("careers-", "").replace("-", " ").title()
+                    elif any(_host_matches(host, ats) for ats in ats_hosts):
+                        company = parsed.path.strip("/").split("/")[0].replace("-", " ").title()
                     else:
                         company = host.split(":")[0].split(".")[0].replace("-", " ").title()
 
@@ -292,8 +294,9 @@ async def search_company_career_sites(client: httpx.AsyncClient, query: str, loc
                 return [], {"provider": "Company Career Site", "company": company,
                             "status": "error", "count": 0, "message": str(exc)[:160]}
 
+    company_key = re.sub(r"\\b(inc|incorporated|corp|corporation|llc|ltd|limited)\\b", "", company.lower()).strip()
     inspection_sites = [(name, site) for name, site in COMPANY_CAREER_SITES.items()
-                        if not company.strip() or company.strip().lower() in name.lower()]
+                        if not company_key or company_key in name.lower() or name.lower() in company_key]
     inspections = await asyncio.gather(*[
         inspect(name, site) for name, site in inspection_sites
     ])
