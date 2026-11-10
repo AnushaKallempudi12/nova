@@ -90,3 +90,14 @@ Nova's Cover Letter Studio uses the candidate's saved resume text, saved experie
 The backend supports Google Gemini and OpenAI. Configure `GEMINI_API_KEY` in the Railway backend to use Gemini; it is selected by default when present. The optional provider selector is `NOVA_AI_PROVIDER=gemini` (or `openai` / `auto`), and the Gemini model override is `NOVA_GEMINI_MODEL` (default `gemini-2.5-flash`). OpenAI remains optional through `NOVA_OPENAI_API_KEY` (or `OPENAI_API_KEY`) and `NOVA_COVER_LETTER_MODEL` (default `gpt-4.1-mini`). Optional company research uses the existing `GOOGLE_CSE_API_KEY` and `GOOGLE_CSE_CX` settings. Never commit real API keys to the repository.
 
 Before generation, the user must explicitly consent in Cover Letter Studio to sending their saved resume text, profile summary, and job description to the configured AI provider. Only company name and target role are sent to Google Programmable Search for company research. Generated drafts are saved to the user's account and remain editable; the user must verify the facts and approve the final letter before submitting it.
+
+ 
+## Company career-site search configuration
+
+Live ATS feeds (Greenhouse, Lever, Ashby and configured SmartRecruiters boards) do not require Google search credentials. Broader discovery of jobs hosted on employer career websites requires Google Programmable Search Engine credentials because many career pages render job listings dynamically rather than exposing public JobPosting JSON-LD on their landing page.
+
+Add both variables to the **Nova backend** Railway service:
+- `GOOGLE_CSE_API_KEY` — Google Programmable Search API key.
+- `GOOGLE_CSE_CX` — Programmable Search Engine ID configured to search the web or the desired employer domains.
+
+Without both variables, Nova can still inspect registered career landing pages for structured JobPosting data, but results may be limited or empty. The UI now reports this limitation rather than implying that every employer career site has a live feed.
