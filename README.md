@@ -1,86 +1,71 @@
 # Nova — Career Intelligence
 
-Nova is a responsive job-search workspace with separate pages for Overview, Dashboard, Applications, Resumes, Job Platforms, and More Tools.
+Nova is a private job-search workspace with authenticated accounts, saved resumes, job-source discovery, cover-letter drafts and application tracking.
 
-## MVP features
+## Features
 
-- Multi-page desktop and mobile navigation; the home page is an introduction and quick-start workspace rather than one long scrolling page.
-- Dashboard totals for Applied, Pending, Responded, Rejected, Interviews, Offers, and response activity.
-- Expandable application tracker with company, role, status, platform, dates, notes, filters, create, edit, and delete.
-- Resume upload and text extraction for PDF and DOCX files (10 MB maximum). Nova identifies common skills and resume-section references for the user to review.
-- Resume text is extracted in memory by the API. The original uploaded file is not retained; the extracted profile is stored in this browser's local storage.
-- Job search against configured public Greenhouse and Lever boards, with exact listing verification before opening an employer application destination.
-- Resume keyword overlap shown on job cards as a basic relevance signal, not a validated or predictive match score.
-- Job platform catalog for LinkedIn, Indeed, Glassdoor, ZipRecruiter, Dice, Wellfound, company career pages, and other supported portals. Platform selection is not the same as an account connection or active API integration.
-- More Tools area for job preferences, application limits, privacy information, and help.
+- Email/password and Google sign-in through Supabase Auth.
+- Account-scoped PostgreSQL records for profile details, extracted resume text, job preferences, applications and generated cover letters.
+- Optional profile fields; users can skip anything they do not want to provide.
+- Resume parsing for text-based PDF and DOCX files (10 MB maximum). The original upload is processed in memory; extracted resume text and detected skills are saved to the account database.
+- Expanded job-source catalog: LinkedIn, Indeed, Dice, Wellfound, Built In, ZipRecruiter, Glassdoor, Monster, Handshake, USAJOBS, FlexJobs, We Work Remotely, and employer ATS career pages.
+- Live public employer-board search for configured Greenhouse, Lever and Ashby boards. Other job platforms are official external links, not falsely described as API integrations.
+- Editable cover-letter drafts generated from saved resume details and job-description keywords. Drafts are saved to the user's account. The generator is template-based and does not claim to use a hosted AI model.
+- Authenticated application tracker and dashboard.
+- Larger typography and clearer responsive controls.
 
-## Current integration limits
+## Required configuration before first launch
 
-The backend searches only the public Greenhouse and Lever boards configured through environment variables. The starter Greenhouse board is Coinbase. Add additional identifiers through `GREENHOUSE_BOARD_TOKENS` and `LEVER_SITE_NAMES` after validating each board. Search results are not a comprehensive view of every job opening.
+### Supabase project
 
-LinkedIn, Indeed, Glassdoor, ZipRecruiter, Dice, and Wellfound are currently catalog entries only. Nova does not scrape those sites, collect their passwords, bypass access controls, or claim they are integrated.
+Create a Supabase project, then:
 
-## Application workflow and safety
+1. Enable Email authentication.
+2. Enable the Google provider and configure Google OAuth client credentials in Supabase.
+3. Add your Nova frontend URL to Supabase's allowed redirect URLs. Use the frontend origin as the OAuth redirect target.
+4. Copy the Supabase project URL and anon/public key.
+5. Copy the PostgreSQL connection string from Supabase Database settings. Prefer the pooler connection string for hosted application use if your deployment environment requires it.
 
-Nova verifies a listing and opens the verified employer destination. The user completes and submits the application on the employer's website. The tracker starts at Pending for a job opened from discovery; the user should change it to Applied only after submitting. Nova does not automatically submit applications in this MVP.
-
-Work authorization, sponsorship, demographic, and other sensitive eligibility answers must be provided and confirmed by the user. Nova does not invent answers or claim an application was received by an employer.
-
-## Data and security limitations — read before using personal data
-
-- Application records are stored in the database and scoped using a browser-generated workspace ID. This is **not authentication**; it is not safe multi-user access control.
-- Resume extracted text is kept in local storage in the current browser. Clearing browser storage removes the local profile.
-- The original uploaded resume is processed in memory and not saved as an uploaded file.
-- For durable application records on Railway, set `DATABASE_URL` to the Railway PostgreSQL connection string. SQLite on Railway's ephemeral filesystem is not durable across redeployments.
-- Do not use this MVP for sensitive personal data or expose it as a secure multi-user service until real user authentication, per-user authorization, encrypted storage, and appropriate retention controls are implemented.
-
-## Railway deployment
-
-The existing Railway setup uses two services from this repository:
+Set these variables in Railway:
 
 **Backend service**
-- Root directory: `/backend`
-- Build: `pip install -r requirements.txt`
-- Start: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- Health check: `/health`
-- Set `DATABASE_URL` to Railway PostgreSQL.
-- Set `NOVA_ALLOWED_ORIGINS` to the frontend Railway URL if the frontend and backend use separate domains.
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `DATABASE_URL` (Supabase PostgreSQL connection string)
+- `NOVA_ALLOWED_ORIGINS` (Nova frontend URL)
+- Optional: `GREENHOUSE_BOARD_TOKENS`, `LEVER_SITE_NAMES`, `ASHBY_BOARD_NAMES`
 
-**Frontend service**
-- Root directory: `/frontend`
-- Build: `npm install && npm run build`
-- Start: `npm run preview -- --host 0.0.0.0 --port $PORT`
-- Set `VITE_API_BASE_URL` to the backend Railway URL. This is a build-time variable; changing it requires a frontend rebuild.
+**Frontend service — build-time variables**
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_API_BASE_URL` (Nova backend URL)
 
-Optional backend variables:
-- `GREENHOUSE_BOARD_TOKENS`: comma-separated Greenhouse board identifiers.
-- `LEVER_SITE_NAMES`: comma-separated Lever site identifiers.
-- `NOVA_ALLOWED_ORIGINS`: comma-separated frontend origins.
+Use only the Supabase anon/public key in the frontend. Never expose a Supabase service-role key or database password in frontend code, and never commit secrets to Git.
+
+### Database and data ownership
+
+The backend creates the new account tables on startup. Each account's profile, resume text, applications and cover letters are keyed by the authenticated Supabase user ID. API requests validate the bearer token with Supabase Auth and query only that user's records.
+
+Existing anonymous workspace applications are not automatically migrated into an account. The old workspace-based API remains for backward compatibility, but the updated frontend uses the authenticated `/api/v2` account APIs.
+
+The original uploaded resume file is not retained. Only extracted text, filename and detected skills are stored. Users should review extracted text and generated cover letters before using them.
+
+## Job-source coverage
+
+- `GREENHOUSE_BOARD_TOKENS`: comma-separated public Greenhouse board identifiers.
+- `LEVER_SITE_NAMES`: comma-separated public Lever site identifiers.
+- `ASHBY_BOARD_NAMES`: comma-separated public Ashby board identifiers.
+
+LinkedIn, Indeed, Glassdoor, ZipRecruiter, Dice, Wellfound and other external portals are official search destinations in the catalog; they are not represented as direct API integrations. Nova does not scrape them, collect their passwords or bypass access controls.
+
+## Application safety
+
+Nova does not automatically submit applications. Users complete employer forms and confirm submission before changing a tracker record to Applied. Work authorization, sponsorship, demographic and legal declarations must be answered and approved by the user. Job matching uses basic keyword overlap and is not a validated prediction.
 
 ## Local development
 
-Backend:
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
+Backend: `cd backend && pip install -r requirements.txt && uvicorn app.main:app --reload`
 
-Frontend:
-```bash
-cd frontend
-npm install
-npm run dev
-```
+Frontend: `cd frontend && npm install && npm run dev`
 
-The local frontend calls `http://localhost:8000` by default. API documentation is available at `/docs`.
-
-## Next hardening steps
-
-1. Add real account authentication and enforce per-user ownership on every API.
-2. Add durable, private resume storage only after access control and retention rules are in place.
-3. Improve resume parsing and explainable skill/job matching.
-4. Add integrations only through approved APIs, partner feeds, or user-directed workflows.
-5. Enable rule-based automatic submission only for providers that explicitly permit it, with user authorization and sensitive-answer safeguards.
+Configure the environment variables above before testing authenticated flows.

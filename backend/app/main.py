@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import create_engine, String, Integer, Date, Text, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
-from .providers import GREENHOUSE_BOARDS, LEVER_SITES, search_public_company_boards, _is_us_location
+from .providers import GREENHOUSE_BOARDS, LEVER_SITES, ASHBY_BOARDS, search_public_company_boards, _is_us_location
 from .verification import verify_job_listing
 
 app=FastAPI(title="Nova Career Intelligence API",version="0.6.0")
@@ -78,14 +78,22 @@ def serialize(row):
 origins=[v.strip() for v in os.getenv("NOVA_ALLOWED_ORIGINS","http://localhost:5173").split(",") if v.strip()]
 app.add_middleware(CORSMiddleware,allow_origins=origins,allow_credentials=True,allow_methods=["GET","POST","PUT","DELETE"],allow_headers=["*"])
 PLATFORMS=[
-{"id":"linkedin","name":"LinkedIn","search":"Not connected","application":"Manual"},
-{"id":"indeed","name":"Indeed","search":"Not connected","application":"Manual"},
-{"id":"glassdoor","name":"Glassdoor","search":"Not connected","application":"Manual"},
-{"id":"ziprecruiter","name":"ZipRecruiter","search":"Not connected","application":"Manual"},
-{"id":"dice","name":"Dice","search":"Not connected","application":"Manual"},
-{"id":"wellfound","name":"Wellfound","search":"Not connected","application":"Manual"},
-{"id":"career","name":"Company career pages","search":"Greenhouse / Lever when configured","application":"Assisted"},
-{"id":"other","name":"Other supported portals","search":"Not connected","application":"Manual"}]
+{"id":"linkedin","name":"LinkedIn","search":"Official external search","application":"Manual"},
+{"id":"indeed","name":"Indeed","search":"Official external search","application":"Manual"},
+{"id":"dice","name":"Dice","search":"Official external search","application":"Manual"},
+{"id":"wellfound","name":"Wellfound","search":"Official external search","application":"Manual"},
+{"id":"builtin","name":"Built In","search":"Official external search","application":"Manual"},
+{"id":"ziprecruiter","name":"ZipRecruiter","search":"Official external search","application":"Manual"},
+{"id":"glassdoor","name":"Glassdoor","search":"Official external search","application":"Manual"},
+{"id":"monster","name":"Monster","search":"Official external search","application":"Manual"},
+{"id":"handshake","name":"Handshake","search":"Official external search","application":"Manual"},
+{"id":"usajobs","name":"USAJOBS","search":"Official external search","application":"Manual"},
+{"id":"flexjobs","name":"FlexJobs","search":"Official external search","application":"Manual"},
+{"id":"weworkremotely","name":"We Work Remotely","search":"Official external search","application":"Manual"},
+{"id":"greenhouse","name":"Greenhouse career pages","search":"Public boards when configured","application":"Employer website"},
+{"id":"lever","name":"Lever career pages","search":"Public boards when configured","application":"Employer website"},
+{"id":"ashby","name":"Ashby career pages","search":"Public boards when configured","application":"Employer website"},
+{"id":"career","name":"Other company career pages","search":"Official employer sites","application":"Manual"}]
 FRONTEND_DIST=Path(__file__).resolve().parents[2]/"frontend"/"dist"
 @app.get("/")
 def root():
@@ -98,14 +106,14 @@ def health():
         return {"status":"ok","database":"connected"}
     except Exception: raise HTTPException(status_code=503,detail="Database health check failed.")
 @app.get("/api/v1/platforms")
-def get_platforms(): return {"platforms":PLATFORMS,"configured_public_boards":len(GREENHOUSE_BOARDS)+len(LEVER_SITES)}
+def get_platforms(): return {"platforms":PLATFORMS,"configured_public_boards":len(GREENHOUSE_BOARDS)+len(LEVER_SITES)+len(ASHBY_BOARDS)}
 @app.get("/api/v1/config")
 def get_config():
-    n=len(GREENHOUSE_BOARDS)+len(LEVER_SITES)
+    n=len(GREENHOUSE_BOARDS)+len(LEVER_SITES)+len(ASHBY_BOARDS)
     return {"resume_upload_enabled":True,"resume_parsing_enabled":True,"application_tracking_enabled":True,"application_storage":"database",
     "live_job_search_enabled":n>0,"job_verification_enabled":True,"guided_application_enabled":True,
     "application_preparation_enabled":False,"application_submission_enabled":False,"provider_integrations_configured":n>0,"configured_public_boards":n,
-    "message":"Nova parses resumes, searches configured public Greenhouse and Lever boards, verifies job destinations and opens employer application pages for user-controlled completion. Form autofill and automatic submission are disabled."}
+    "message":"Nova supports authenticated profiles, saved resumes, application tracking, cover-letter drafts, and public Greenhouse, Lever and Ashby board search. Other job platforms open their official websites; automatic application submission is disabled."}
 @app.get("/api/v1/applications")
 def list_applications(workspace_id:str):
     with SessionLocal() as db:
@@ -178,3 +186,8 @@ if FRONTEND_DIST.exists():
         candidate=FRONTEND_DIST/full_path
         if candidate.is_file() and FRONTEND_DIST in candidate.resolve().parents: return FileResponse(candidate)
         return FileResponse(FRONTEND_DIST/"index.html")
+
+
+from .auth_api import router as account_router
+app.include_router(account_router)
+Base.metadata.create_all(bind=engine)

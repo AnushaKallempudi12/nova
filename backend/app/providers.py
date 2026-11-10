@@ -185,3 +185,43 @@ async def search_public_company_boards(query: str, location: str, limit: int = 5
         "configured_sources": configured,
         "message": f"Found {len(jobs)} matching published roles across configured public career boards."
     }
+
+
+# Ashby public job-board API. Configure public board identifiers in ASHBY_BOARD_NAMES.
+ASHBY_BOARDS=[v.strip() for v in os.getenv("ASHBY_BOARD_NAMES","").split(",") if v.strip() and TOKEN_PATTERN.fullmatch(v.strip())][:30]
+
+async def _ashby(client:httpx.AsyncClient,board:str,query:str,location:str):
+    response=await client.get(f"https://api.ashbyhq.com/posting-api/job-board/{board}?includeCompensation=true")
+    response.raise_for_status()
+    payload=response.json()
+    jobs=[]
+    for item in payload.get("jobs",[]):
+        job={"id":f"ashby:{board}:{item.get('id')}","title":item.get("title","Untitled role"),"company":item.get("companyName") or board.title(),"location":item.get("location","") or ("Remote" if item.get("isRemote") else ""),"description":_plain_text(item.get("descriptionPlain") or item.get("descriptionHtml") or "")[:1200],"url":item.get("jobUrl") or item.get("applyUrl") or "","source":"Ashby","updated_at":item.get("publishedAt")}
+        if job["url"].startswith("https://") and _matches(job,query,location):
+            jobs.append(job)
+    return jobs,{"provider":"Ashby","board":board,"status":"ok","count":len(jobs)}
+
+async def search_public_company_boards(query:str,location:str,limit:int=50)->dict:
+    configured=len(GREENHOUSE_BOARDS)+len(LEVER_SITES)+len(ASHBY_BOARDS)
+    if not configured:
+        return {"jobs":[],"sources_checked":[],"configured_sources":0,"message":"No public career boards are configured. Add Greenhouse, Lever or Ashby board identifiers to backend environment variables."}
+    timeout=httpx.Timeout(12.0,connect=5.0)
+    semaphore=asyncio.Semaphore(6)
+    async with httpx.AsyncClient(timeout=timeout,headers={"Accept":"application/json","User-Agent":"NovaCareerSearch/0.2"}) as client:
+        async def call(provider,identifier):
+            async with semaphore:
+                try:
+                    if provider=="Greenhouse": return await _greenhouse(client,identifier,query,location)
+                    if provider=="Lever": return await _lever(client,identifier,query,location)
+                    return await _ashby(client,identifier,query,location)
+                except (httpx.HTTPError,ValueError,KeyError) as exc:
+                    return [],{"provider":provider,"board":identifier,"status":"error","message":str(exc)[:180]}
+        tasks=[call("Greenhouse",x) for x in GREENHOUSE_BOARDS]+[call("Lever",x) for x in LEVER_SITES]+[call("Ashby",x) for x in ASHBY_BOARDS]
+        results=await asyncio.gather(*tasks)
+    jobs=[]
+    statuses=[]
+    for rows,status in results:
+        jobs.extend(rows)
+        statuses.append(status)
+    jobs.sort(key=lambda x:x.get("updated_at") or "",reverse=True)
+    return {"jobs":jobs[:max(1,min(limit,100))],"sources_checked":statuses,"configured_sources":configured,"message":f"Found {len(jobs)} matching published roles across configured Greenhouse, Lever and Ashby career boards."}
