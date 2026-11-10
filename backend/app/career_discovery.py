@@ -243,6 +243,8 @@ async def _google_cse(client: httpx.AsyncClient, query: str, location: str,
                         company = host.split(".")[0].replace("careers-", "").replace("-", " ").title()
                     elif any(_host_matches(host, ats) for ats in ats_hosts):
                         company = parsed.path.strip("/").split("/")[0].replace("-", " ").title()
+                    elif host.startswith("careers.") or host.startswith("jobs."):
+                        company = host.split(".")[1].replace("-", " ").title()
                     else:
                         company = host.split(":")[0].split(".")[0].replace("-", " ").title()
 
