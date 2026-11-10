@@ -182,3 +182,6 @@
 .external-search-links a:hover{background:#eef4ff;border-color:#9db4e4}
 .danger-button{background:#b93838!important;border-color:#b93838!important;color:#fff!important}
 @media(max-width:600px){.external-search-links>div{display:grid;grid-template-columns:1fr 1fr}.external-search-links a{justify-content:center}}
+
+.job-title-link{display:inline-flex;align-items:center;gap:5px;color:inherit;text-decoration:none}
+.job-title-link:hover{color:#315db5;text-decoration:underline}
