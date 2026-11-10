@@ -209,9 +209,7 @@ async def search_public_company_boards(query:str,location:str,limit:int=50,selec
         "flexjobs":"FlexJobs","weworkremotely":"We Work Remotely","career":"Other company career pages",
         "other":"Other supported portals"
     }
-    selected=set(selected_platforms or [])
-    if not selected_platforms:
-        selected={"greenhouse","lever","ashby"}
+    selected=set(selected_platforms if selected_platforms is not None else ["greenhouse","lever","ashby"])
     provider_selection={
         "Greenhouse":("greenhouse" in selected,GREENHOUSE_BOARDS),
         "Lever":("lever" in selected,LEVER_SITES),
