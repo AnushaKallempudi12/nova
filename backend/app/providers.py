@@ -9,13 +9,11 @@ import httpx
 TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
 # Starter employers selected for broad software engineering opportunities.
 # Board identifiers were publicly verified on Greenhouse; availability is rechecked live per search.
-STARTER_GREENHOUSE_BOARDS = ["coinbase"]  # one-employer pilot; expand only after the first application is reviewed
-GREENHOUSE_BOARDS = [
-    value.strip() for value in os.getenv(
-        "GREENHOUSE_BOARD_TOKENS", ",".join(STARTER_GREENHOUSE_BOARDS)
-    ).split(",")
+STARTER_GREENHOUSE_BOARDS = ["coinbase","stripe","airbnb","databricks","datadog","discord","figma","instacart","reddit","scaleai","cloudflare","anthropic"]
+GREENHOUSE_BOARDS = list(dict.fromkeys(STARTER_GREENHOUSE_BOARDS + [
+    value.strip() for value in os.getenv("GREENHOUSE_BOARD_TOKENS", "").split(",")
     if value.strip() and TOKEN_PATTERN.fullmatch(value.strip())
-][:25]
+]))[:40]
 COMPANY_NAMES = {
     "coinbase": "Coinbase",
     "stripe": "Stripe",
@@ -26,15 +24,18 @@ COMPANY_NAMES = {
     "datadog": "Datadog",
     "andurilindustries": "Anduril Industries",
     "spacex": "SpaceX",
+    "stripe": "Stripe", "airbnb": "Airbnb", "databricks": "Databricks",
+    "figma": "Figma", "instacart": "Instacart", "reddit": "Reddit",
+    "scaleai": "Scale AI", "cloudflare": "Cloudflare", "anthropic": "Anthropic",
 }
 SENIOR_TITLE_TERMS = (
     "senior", "staff", "principal", "lead", "director", "manager",
     "architect", "head of", "vice president", "vp "
 )
-LEVER_SITES = [
+LEVER_SITES = list(dict.fromkeys(["spotify","gopuff","ro","swordhealth"] + [
     value.strip() for value in os.getenv("LEVER_SITE_NAMES", "").split(",")
     if value.strip() and TOKEN_PATTERN.fullmatch(value.strip())
-][:25]
+]))[:40]
 
 
 def _plain_text(value: str | None) -> str:
@@ -188,7 +189,7 @@ async def search_public_company_boards(query: str, location: str, limit: int = 5
 
 
 # Ashby public job-board API. Configure public board identifiers in ASHBY_BOARD_NAMES.
-ASHBY_BOARDS=[v.strip() for v in os.getenv("ASHBY_BOARD_NAMES","").split(",") if v.strip() and TOKEN_PATTERN.fullmatch(v.strip())][:30]
+ASHBY_BOARDS=list(dict.fromkeys(["Ramp","Vanta","Linear","Watershed","Replit","Modal","Baseten","Browserbase","Notion","Perplexity","Cohere","Zip","Sierra","Decagon","Cursor"]+[v.strip() for v in os.getenv("ASHBY_BOARD_NAMES","").split(",") if v.strip() and TOKEN_PATTERN.fullmatch(v.strip())]))[:40]
 
 async def _ashby(client:httpx.AsyncClient,board:str,query:str,location:str):
     response=await client.get(f"https://api.ashbyhq.com/posting-api/job-board/{board}?includeCompensation=true")
