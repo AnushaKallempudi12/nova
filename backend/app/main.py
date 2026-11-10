@@ -56,7 +56,8 @@ class JobSearchRequest(BaseModel):
     query:str=Field(default="",max_length=300)
     location:str=Field(default="United States",max_length=120)
     limit:int=Field(default=50,ge=1,le=100)
-    selected_platforms:list[str]=Field(default_factory=lambda:["greenhouse","lever","ashby","smartrecruiters","career"],max_length=20)\n    skills:list[str]=Field(default_factory=list,max_length=100)
+    selected_platforms:list[str]=Field(default_factory=lambda:["greenhouse","lever","ashby","smartrecruiters","career"],max_length=20)
+    skills:list[str]=Field(default_factory=list,max_length=100)
     @field_validator("location")
     @classmethod
     def us_only(cls,v):
@@ -95,7 +96,8 @@ PLATFORMS=[
 {"id":"greenhouse","name":"Greenhouse career pages","search":"Public boards when configured","application":"Employer website"},
 {"id":"lever","name":"Lever career pages","search":"Public boards when configured","application":"Employer website"},
 {"id":"ashby","name":"Ashby career pages","search":"Public boards when configured","application":"Employer website"},
-{"id":"smartrecruiters","name":"SmartRecruiters career pages","search":"Public company postings when configured","application":"Employer website"},\n{"id":"career","name":"All company career websites","search":"Public career pages and structured job listings","application":"Employer website"}]
+{"id":"smartrecruiters","name":"SmartRecruiters career pages","search":"Public company postings when configured","application":"Employer website"},
+{"id":"career","name":"All company career websites","search":"Public career pages and structured job listings","application":"Employer website"}]
 FRONTEND_DIST=Path(__file__).resolve().parents[2]/"frontend"/"dist"
 @app.get("/")
 def root():
