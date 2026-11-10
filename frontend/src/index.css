@@ -94,3 +94,15 @@
 .platform-choice label{display:flex;align-items:center;gap:8px;flex:1;border:0;padding:10px 0 10px 10px;min-width:0}
 .platform-choice>a{font-size:11px;color:#315db5;text-decoration:none;white-space:nowrap;padding:6px}
 .platform-choice>a:hover{text-decoration:underline}
+
+.inline-preferences{border:1px solid #dce5f0;border-radius:14px;background:#fff;padding:14px 17px;margin:0 0 16px}
+.inline-preferences summary{cursor:pointer;font-weight:700;color:#172b4d;list-style:none}
+.inline-preferences summary::-webkit-details-marker{display:none}
+.inline-preferences summary span{font-weight:400;color:#64748b;font-size:12px;margin-left:8px}
+.inline-preferences-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+.inline-preferences-grid>label,.inline-preferences-grid .setting{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600;color:#475569}
+.inline-preferences-grid input:not([type=checkbox]),.inline-preferences-grid textarea,.inline-preferences-grid select{width:100%;border:1px solid #dce5f0;border-radius:9px;padding:9px 10px;font:inherit;font-weight:400;color:#172b4d;background:#fff}
+.inline-preferences-grid .checks{display:flex;flex-wrap:wrap;gap:12px}
+.inline-preferences-grid .checks label{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:400}
+.inline-preferences-grid .checks input{accent-color:#315db5}
+@media(max-width:640px){.inline-preferences-grid{grid-template-columns:1fr}.inline-preferences summary span{display:block;margin:4px 0 0}}
