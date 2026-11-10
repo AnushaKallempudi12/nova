@@ -425,7 +425,7 @@ def _call_cover_letter_model(system_prompt:str,user_prompt:str,*,temperature:flo
         if provider=="gemini":
             if not gemini_key:
                 raise HTTPException(status_code=503,detail="NOVA_AI_PROVIDER is set to gemini, but GEMINI_API_KEY is missing from the Nova backend Railway service.")
-            model=os.getenv("NOVA_GEMINI_MODEL","gemini-2.5-flash").strip()
+            model=os.getenv("NOVA_GEMINI_MODEL","gemini-3.5-flash").strip()
             endpoint=f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
             response=httpx.post(
                 endpoint,
@@ -465,10 +465,17 @@ def _call_cover_letter_model(system_prompt:str,user_prompt:str,*,temperature:flo
     except httpx.HTTPStatusError as exc:
         status=exc.response.status_code
         if status in {401,403}:
-            raise HTTPException(status_code=503,detail="Nova's configured AI provider rejected its API key. Check the backend Railway variable name and key.")
+            raise HTTPException(status_code=503,detail="Nova's configured AI provider rejected its API key. Check the backend Railway variable name, key restrictions, and Gemini API access.")
         if status==429:
             raise HTTPException(status_code=503,detail="The AI provider rate limit or billing quota was reached. Check the configured API account.")
-        raise HTTPException(status_code=502,detail=f"The AI cover letter provider returned an error (HTTP {status}).")
+        if provider=="gemini" and status==404:
+            raise HTTPException(status_code=503,detail="The configured Gemini model is unavailable to this API project. Nova now defaults to gemini-3.5-flash; remove an old NOVA_GEMINI_MODEL override or set it to a model enabled for your key.")
+        try:
+            provider_error=exc.response.json().get("error",{}).get("message","")
+        except (ValueError,TypeError):
+            provider_error=""
+        safe_error=re.sub(r"[^A-Za-z0-9 .,:_/-]","",str(provider_error))[:220]
+        raise HTTPException(status_code=502,detail=f"The AI cover letter provider returned HTTP {status}"+(f": {safe_error}" if safe_error else "."))
     except HTTPException:
         raise
     except (KeyError,IndexError,TypeError,ValueError):
@@ -576,6 +583,15 @@ def list_letters(user=Depends(current_user)):
     with SessionLocal() as db:
         rows=db.query(SavedCoverLetter).filter_by(user_id=user["id"]).order_by(SavedCoverLetter.created_at.desc()).all()
         return {"cover_letters":[{"id":r.id,"title":r.title,"company":r.company,"role":r.role,"content":r.content} for r in rows]}
+
+@router.delete("/cover-letters/{letter_id}")
+def delete_letter(letter_id:int,user=Depends(current_user)):
+    with SessionLocal() as db:
+        row=db.query(SavedCoverLetter).filter_by(id=letter_id,user_id=user["id"]).first()
+        if not row: raise HTTPException(status_code=404,detail="Cover letter draft not found.")
+        db.delete(row);db.commit()
+        return {"deleted":True,"id":letter_id}
+
 
 @router.put("/cover-letters/{letter_id}")
 def update_letter(letter_id:int,payload:CoverLetterEdit,user=Depends(current_user)):
