@@ -479,13 +479,17 @@ def _call_cover_letter_model(system_prompt:str,user_prompt:str,*,temperature:flo
             raise ValueError("The AI provider returned an empty draft.")
         return content,provider_label
     except httpx.TimeoutException:
-        raise HTTPException(status_code=504,detail="The AI cover letter service timed out. Please try again.")
+        raise HTTPException(status_code=504,detail="The AI cover letter service timed out after automatic retries. Please try again.")
+    except httpx.RequestError:
+        raise HTTPException(status_code=503,detail="Nova could not reach the AI provider after automatic retries. Please try again shortly.")
     except httpx.HTTPStatusError as exc:
         status=exc.response.status_code
         if status in {401,403}:
             raise HTTPException(status_code=503,detail="Nova's configured AI provider rejected its API key. Check the backend Railway variable name, key restrictions, and Gemini API access.")
         if status==429:
             raise HTTPException(status_code=503,detail="The AI provider rate limit or billing quota was reached. Check the configured API account.")
+        if status in {500,502,503,504}:
+            raise HTTPException(status_code=503,detail="The AI provider is temporarily unavailable after automatic retries. Please try again shortly.")
         if provider=="gemini" and status==404:
             raise HTTPException(status_code=503,detail="The configured Gemini model is unavailable to this API project. Nova now defaults to gemini-3.5-flash; remove an old NOVA_GEMINI_MODEL override or set it to a model enabled for your key.")
         try:
