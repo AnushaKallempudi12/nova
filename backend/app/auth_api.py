@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import date, datetime
 from typing import Optional
 import httpx
@@ -88,7 +89,7 @@ class ApplicationInput(BaseModel):
 class CoverLetterInput(BaseModel):
     company:str=Field(default="",max_length=200)
     role:str=Field(min_length=1,max_length=300)
-    job_description:str=Field(default="",max_length=12000)
+    job_description:str=Field(min_length=80,max_length=12000)
 class CoverLetterEdit(BaseModel):
     content:str=Field(min_length=20,max_length=20000)
 
@@ -132,7 +133,7 @@ def list_apps(user=Depends(current_user)):
 
 @router.post("/applications")
 def create_app(payload:ApplicationInput,user=Depends(current_user)):
-    if payload.status not in {"Applied","Pending","Responded","Interview","Rejected","Offer","Withdrawn"}:
+    if payload.status not in {"Saved","Applied","Pending","Responded","Interview","Rejected","Offer","Withdrawn"}:
         raise HTTPException(status_code=422,detail="Unsupported application status.")
     with SessionLocal() as db:
         r=UserApplication(user_id=user["id"],**payload.model_dump());db.add(r);db.commit();db.refresh(r)
@@ -140,6 +141,8 @@ def create_app(payload:ApplicationInput,user=Depends(current_user)):
 
 @router.put("/applications/{app_id}")
 def update_app(app_id:int,payload:ApplicationInput,user=Depends(current_user)):
+    if payload.status not in {"Saved","Applied","Pending","Responded","Interview","Rejected","Offer","Withdrawn"}:
+        raise HTTPException(status_code=422,detail="Unsupported application status.")
     with SessionLocal() as db:
         r=db.query(UserApplication).filter_by(id=app_id,user_id=user["id"]).first()
         if not r: raise HTTPException(status_code=404,detail="Application not found.")
@@ -159,24 +162,47 @@ def delete_app(app_id:int,user=Depends(current_user)):
 def generate_letter(payload:CoverLetterInput,user=Depends(current_user)):
     with SessionLocal() as db:
         resume=db.get(UserResume,user["id"]);profile=db.get(UserProfile,user["id"])
-        if not resume: raise HTTPException(status_code=400,detail="Upload and save your resume before creating a cover letter.")
+        if not resume:
+            raise HTTPException(status_code=400,detail="Upload and save your resume before creating a cover letter.")
         p=profile.data if profile else {}
-        name=(p.get("full_name") or "").strip() or "[Your Name]"
+        name=" ".join(x for x in [p.get("first_name","").strip(),p.get("last_name","").strip()] if x)
+        name=name or (p.get("full_name") or user.get("metadata",{}).get("full_name") or "").strip() or "Your Name"
+        contact=[p.get("email") or user.get("email",""),p.get("phone",""),p.get("linkedin_url",""),p.get("portfolio_url","")]
+        contact_line=" | ".join(x.strip() for x in contact if isinstance(x,str) and x.strip())
+        location=(p.get("location") or "").strip()
         skills=resume.skills or []
-        lines=[x.strip(" •\\t-") for x in resume.extracted_text.splitlines() if len(x.strip())>45]
-        evidence=" ".join(lines[:2])[:500]
-        skill_sentence=("My resume highlights experience with "+", ".join(skills[:8])+".") if skills else "My resume provides further detail about my professional skills and experience."
-        matching=[x for x in skills if x.lower() in payload.job_description.lower()]
-        alignment=("The posting highlights "+", ".join(matching[:6])+"; I would welcome the opportunity to discuss relevant examples from my background." if matching else "I reviewed the responsibilities described in the posting and would welcome the opportunity to discuss how my background aligns with the team’s needs.")
-        content=(f"{name}\\n{p.get('location','')}\\n{user.get('email','')} {p.get('phone','')}\\n\\nDear Hiring Manager,\\n\\n"
-          f"I am writing to express my interest in the {payload.role} position at {payload.company or 'your organization'}. "
-          "My background, as outlined in my resume, has helped me build practical experience relevant to this opportunity.\\n\\n"
-          f"{skill_sentence} Relevant experience from my resume includes: {evidence}\\n\\n{alignment}\\n\\n"
-          f"I am interested in contributing to {payload.company or 'your team'} and would welcome the opportunity to discuss how my background aligns with the role. "
-          "Thank you for your time and consideration.\\n\\nSincerely,\\n"+name)
-        row=SavedCoverLetter(user_id=user["id"],title=f"{payload.role} — {payload.company or 'Cover Letter'}",company=payload.company,role=payload.role,content=content)
+        jd=payload.job_description.lower()
+        matching=[skill for skill in skills if skill.lower() in jd]
+        relevant=matching[:6] if matching else skills[:5]
+        if relevant:
+            skill_phrase=", ".join(relevant)
+            opening=(f"I am applying for the {payload.role} position"
+                     +(f" at {payload.company}" if payload.company.strip() else "")
+                     +f". My resume reflects hands-on experience with {skill_phrase}, which are relevant to this opportunity.")
+        else:
+            opening=(f"I am applying for the {payload.role} position"
+                     +(f" at {payload.company}" if payload.company.strip() else "")
+                     +". My professional background and project experience are described in the resume I have included.")
+        summary=re.sub(r"\s+"," ",str(p.get("experience_summary",""))).strip()
+        if summary:
+            experience=("My experience includes "+summary.rstrip(".")+"." )
+        else:
+            experience=("My resume provides further detail about the projects, responsibilities and results behind my technical background.")
+        if matching:
+            alignment=("I was particularly interested in the role's requirements around "+", ".join(matching[:5])+
+                       ". These areas connect with skills already represented in my background, and I would welcome the chance to discuss specific examples.")
+        else:
+            alignment=("I have reviewed the responsibilities and qualifications in the job description. I would welcome the opportunity to explain how my experience and approach could support the team's needs.")
+        closing=("Thank you for considering my application. I would appreciate the opportunity to discuss the role and how I could contribute.")
+        header=[name]
+        if location: header.append(location)
+        if contact_line: header.append(contact_line)
+        content="\n".join(header)+"\n\nDear Hiring Manager,\n\n"+opening+"\n\n"+experience+"\n\n"+alignment+"\n\n"+closing+"\n\nSincerely,\n"+name
+        row=SavedCoverLetter(user_id=user["id"],title=f"{payload.role} — {payload.company.strip() or 'Cover Letter'}",
+                             company=payload.company.strip(),role=payload.role,content=content)
         db.add(row);db.commit();db.refresh(row)
-        return {"id":row.id,"title":row.title,"content":row.content,"notice":"Draft created from your saved resume details. Review it before sending; Nova does not invent qualifications."}
+        return {"id":row.id,"title":row.title,"content":row.content,
+                "notice":"Draft created using resume skills and the required job description. Review every detail before sending."}
 
 @router.get("/cover-letters")
 def list_letters(user=Depends(current_user)):

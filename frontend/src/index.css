@@ -73,3 +73,57 @@
 @media(max-width:600px){.topbar h1{font-size:21px}.panel h2{font-size:19px}.nav-item{font-size:15px}}
 
 .logout-btn{margin-left:auto;background:transparent;border:0;color:#aab7ca;padding:7px;border-radius:7px}.logout-btn:hover{background:#33445e;color:white}.user-mini{gap:9px}.user-mini div{min-width:0;flex:1}.user-mini b{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+
+/* Unified Find Jobs source picker */
+.platform-inline{background:#fff;border:1px solid #dce5f0;border-radius:16px;padding:18px;margin:0 0 18px}
+.platform-inline-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.platform-inline-head b{font-size:15px;color:#172b4d}
+.platform-inline-head small{color:#64748b;font-size:12px}
+.platform-inline-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:9px}
+.platform-inline-options label{display:flex;align-items:center;gap:8px;border:1px solid #e2e8f0;border-radius:10px;padding:10px 11px;font-size:13px;color:#475569;cursor:pointer;min-width:0}
+.platform-inline-options label.chosen{border-color:#7897d4;background:#f3f7ff;color:#1e3a68}
+.platform-inline-options input{accent-color:#315db5}
+.platform-inline-options em{margin-left:auto;font-size:10px;font-style:normal;color:#315db5;font-weight:700;white-space:nowrap}
+.platform-inline .muted{font-size:12px;line-height:1.5;margin:12px 0 0;color:#64748b}
+.required-label{font-size:11px;color:#b45309;font-weight:700;margin-left:5px}
+@media(max-width:640px){.platform-inline{padding:13px}.platform-inline-options{grid-template-columns:1fr 1fr}.platform-inline-options label{font-size:12px;padding:9px 8px}}
+
+.platform-choice{display:flex;align-items:center;gap:8px;border:1px solid #e2e8f0;border-radius:10px;padding:0 9px 0 0;min-width:0}
+.platform-choice.chosen{border-color:#7897d4;background:#f3f7ff}
+.platform-choice label{display:flex;align-items:center;gap:8px;flex:1;border:0;padding:10px 0 10px 10px;min-width:0}
+.platform-choice>a{font-size:11px;color:#315db5;text-decoration:none;white-space:nowrap;padding:6px}
+.platform-choice>a:hover{text-decoration:underline}
+
+.inline-preferences{border:1px solid #dce5f0;border-radius:14px;background:#fff;padding:14px 17px;margin:0 0 16px}
+.inline-preferences summary{cursor:pointer;font-weight:700;color:#172b4d;list-style:none}
+.inline-preferences summary::-webkit-details-marker{display:none}
+.inline-preferences summary span{font-weight:400;color:#64748b;font-size:12px;margin-left:8px}
+.inline-preferences-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+.inline-preferences-grid>label,.inline-preferences-grid .setting{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600;color:#475569}
+.inline-preferences-grid input:not([type=checkbox]),.inline-preferences-grid textarea,.inline-preferences-grid select{width:100%;border:1px solid #dce5f0;border-radius:9px;padding:9px 10px;font:inherit;font-weight:400;color:#172b4d;background:#fff}
+.inline-preferences-grid .checks{display:flex;flex-wrap:wrap;gap:12px}
+.inline-preferences-grid .checks label{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:400}
+.inline-preferences-grid .checks input{accent-color:#315db5}
+@media(max-width:640px){.inline-preferences-grid{grid-template-columns:1fr}.inline-preferences summary span{display:block;margin:4px 0 0}}
+
+.dashboard-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.dashboard-banner{display:flex;align-items:center;justify-content:space-between;gap:20px}
+.dashboard-banner .dashboard-actions{flex-shrink:0}
+@media(max-width:700px){.dashboard-banner{align-items:flex-start;flex-direction:column}.dashboard-banner .dashboard-actions{width:100%}.dashboard-banner .dashboard-actions button{flex:1}}
+
+
+/* Account menu and consistent email-initial avatars */
+.user-mini.account-menu-wrap{position:relative;display:block;padding:10px 8px}
+.account-trigger{width:100%;display:flex;align-items:center;gap:10px;padding:4px;border:0;background:transparent;color:#e8edf7;text-align:left;cursor:pointer}
+.account-trigger:hover{background:#33445e;border-radius:9px}
+.account-avatar{width:34px;height:34px;flex:0 0 34px;border-radius:50%;display:grid;place-items:center;background:#e5ebff;color:#405fae;font:800 14px Manrope,sans-serif}
+.account-identity{min-width:0;flex:1;display:grid;gap:3px}
+.account-identity b{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:#f3f6fc}
+.account-identity small{font-size:9px;color:#aab7ca}
+.account-trigger>svg{color:#aab7ca;flex-shrink:0}
+.account-dropdown{position:absolute;left:8px;right:8px;bottom:calc(100% - 2px);z-index:40;padding:7px;background:#fff;border:1px solid #e1e7f0;border-radius:10px;box-shadow:0 12px 30px #0b183333}
+.account-dropdown .account-email{padding:8px 9px 10px;border-bottom:1px solid #edf0f5;margin-bottom:5px;color:#718096;font-size:11px;overflow-wrap:anywhere}
+.account-dropdown button{width:100%;display:flex;align-items:center;gap:9px;padding:10px;border:0;border-radius:7px;background:transparent;color:#34445d;text-align:left;font-size:13px;cursor:pointer}
+.account-dropdown button:hover{background:#f1f5ff;color:#365db7}
+.topbar .avatar{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#e5ebff;color:#405fae;font:800 14px Manrope,sans-serif}

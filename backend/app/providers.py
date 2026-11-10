@@ -9,13 +9,11 @@ import httpx
 TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
 # Starter employers selected for broad software engineering opportunities.
 # Board identifiers were publicly verified on Greenhouse; availability is rechecked live per search.
-STARTER_GREENHOUSE_BOARDS = ["coinbase"]  # one-employer pilot; expand only after the first application is reviewed
-GREENHOUSE_BOARDS = [
-    value.strip() for value in os.getenv(
-        "GREENHOUSE_BOARD_TOKENS", ",".join(STARTER_GREENHOUSE_BOARDS)
-    ).split(",")
+STARTER_GREENHOUSE_BOARDS = ["coinbase","stripe","airbnb","databricks","datadog","discord","figma","instacart","reddit","scaleai","cloudflare","anthropic"]
+GREENHOUSE_BOARDS = list(dict.fromkeys(STARTER_GREENHOUSE_BOARDS + [
+    value.strip() for value in os.getenv("GREENHOUSE_BOARD_TOKENS", "").split(",")
     if value.strip() and TOKEN_PATTERN.fullmatch(value.strip())
-][:25]
+]))[:40]
 COMPANY_NAMES = {
     "coinbase": "Coinbase",
     "stripe": "Stripe",
@@ -26,15 +24,18 @@ COMPANY_NAMES = {
     "datadog": "Datadog",
     "andurilindustries": "Anduril Industries",
     "spacex": "SpaceX",
+    "stripe": "Stripe", "airbnb": "Airbnb", "databricks": "Databricks",
+    "figma": "Figma", "instacart": "Instacart", "reddit": "Reddit",
+    "scaleai": "Scale AI", "cloudflare": "Cloudflare", "anthropic": "Anthropic",
 }
 SENIOR_TITLE_TERMS = (
     "senior", "staff", "principal", "lead", "director", "manager",
     "architect", "head of", "vice president", "vp "
 )
-LEVER_SITES = [
+LEVER_SITES = list(dict.fromkeys(["spotify","gopuff","ro","swordhealth"] + [
     value.strip() for value in os.getenv("LEVER_SITE_NAMES", "").split(",")
     if value.strip() and TOKEN_PATTERN.fullmatch(value.strip())
-][:25]
+]))[:40]
 
 
 def _plain_text(value: str | None) -> str:
@@ -94,7 +95,7 @@ def _matches(job: dict[str, Any], query: str, location: str) -> bool:
     wanted_location = location.strip().lower()
     actual_location = str(job.get("location", ""))
     if wanted_location in {"united states", "usa", "us"}:
-        return _is_us_location(actual_location)
+        return _is_us_location(actual_location) or "remote" in actual_location.lower()
     if wanted_location and wanted_location not in actual_location.lower():
         return False
     return True
@@ -188,7 +189,7 @@ async def search_public_company_boards(query: str, location: str, limit: int = 5
 
 
 # Ashby public job-board API. Configure public board identifiers in ASHBY_BOARD_NAMES.
-ASHBY_BOARDS=[v.strip() for v in os.getenv("ASHBY_BOARD_NAMES","").split(",") if v.strip() and TOKEN_PATTERN.fullmatch(v.strip())][:30]
+ASHBY_BOARDS=list(dict.fromkeys(["Ramp","Vanta","Linear","Watershed","Replit","Modal","Baseten","Browserbase","Notion","Perplexity","Cohere","Zip","Sierra","Decagon","Cursor"]+[v.strip() for v in os.getenv("ASHBY_BOARD_NAMES","").split(",") if v.strip() and TOKEN_PATTERN.fullmatch(v.strip())]))[:40]
 
 async def _ashby(client:httpx.AsyncClient,board:str,query:str,location:str):
     response=await client.get(f"https://api.ashbyhq.com/posting-api/job-board/{board}?includeCompensation=true")
@@ -201,13 +202,28 @@ async def _ashby(client:httpx.AsyncClient,board:str,query:str,location:str):
             jobs.append(job)
     return jobs,{"provider":"Ashby","board":board,"status":"ok","count":len(jobs)}
 
-async def search_public_company_boards(query:str,location:str,limit:int=50)->dict:
-    configured=len(GREENHOUSE_BOARDS)+len(LEVER_SITES)+len(ASHBY_BOARDS)
-    if not configured:
-        return {"jobs":[],"sources_checked":[],"configured_sources":0,"message":"No public career boards are configured. Add Greenhouse, Lever or Ashby board identifiers to backend environment variables."}
+async def search_public_company_boards(query:str,location:str,limit:int=50,selected_platforms:list[str]|None=None)->dict:
+    platform_names={
+        "linkedin":"LinkedIn","indeed":"Indeed","dice":"Dice","wellfound":"Wellfound",
+        "builtin":"Built In","ziprecruiter":"ZipRecruiter","glassdoor":"Glassdoor",
+        "monster":"Monster","handshake":"Handshake","usajobs":"USAJOBS",
+        "flexjobs":"FlexJobs","weworkremotely":"We Work Remotely","career":"Other company career pages",
+        "other":"Other supported portals"
+    }
+    selected=set(selected_platforms if selected_platforms is not None else ["greenhouse","lever","ashby"])
+    provider_selection={
+        "Greenhouse":("greenhouse" in selected,GREENHOUSE_BOARDS),
+        "Lever":("lever" in selected,LEVER_SITES),
+        "Ashby":("ashby" in selected,ASHBY_BOARDS),
+    }
+    external=[platform_names[x] for x in sorted(selected) if x in platform_names]
+    configured=sum(len(boards) for enabled,boards in provider_selection.values() if enabled)
+    if not any(enabled for enabled,_ in provider_selection.values()):
+        return {"jobs":[],"sources_checked":[],"configured_sources":0,"external_platforms":external,
+                "message":"No live ATS sources selected. Select Greenhouse, Lever or Ashby to search connected employer boards."}
     timeout=httpx.Timeout(12.0,connect=5.0)
     semaphore=asyncio.Semaphore(6)
-    async with httpx.AsyncClient(timeout=timeout,headers={"Accept":"application/json","User-Agent":"NovaCareerSearch/0.2"}) as client:
+    async with httpx.AsyncClient(timeout=timeout,headers={"Accept":"application/json","User-Agent":"NovaCareerSearch/0.3"}) as client:
         async def call(provider,identifier):
             async with semaphore:
                 try:
@@ -216,12 +232,20 @@ async def search_public_company_boards(query:str,location:str,limit:int=50)->dic
                     return await _ashby(client,identifier,query,location)
                 except (httpx.HTTPError,ValueError,KeyError) as exc:
                     return [],{"provider":provider,"board":identifier,"status":"error","message":str(exc)[:180]}
-        tasks=[call("Greenhouse",x) for x in GREENHOUSE_BOARDS]+[call("Lever",x) for x in LEVER_SITES]+[call("Ashby",x) for x in ASHBY_BOARDS]
-        results=await asyncio.gather(*tasks)
+        tasks=[]
+        statuses=[]
+        for provider,(enabled,boards) in provider_selection.items():
+            if not enabled: continue
+            if not boards:
+                statuses.append({"provider":provider,"status":"not_configured","count":0,"message":"No board identifiers configured for this provider."})
+            else:
+                tasks.extend(call(provider,board) for board in boards)
+        results=await asyncio.gather(*tasks) if tasks else []
     jobs=[]
-    statuses=[]
     for rows,status in results:
         jobs.extend(rows)
         statuses.append(status)
     jobs.sort(key=lambda x:x.get("updated_at") or "",reverse=True)
-    return {"jobs":jobs[:max(1,min(limit,100))],"sources_checked":statuses,"configured_sources":configured,"message":f"Found {len(jobs)} matching published roles across configured Greenhouse, Lever and Ashby career boards."}
+    return {"jobs":jobs[:max(1,min(limit,100))],"sources_checked":statuses,
+            "configured_sources":configured,"external_platforms":external,
+            "message":f"Found {len(jobs)} matching published roles across {configured} configured employer boards."}
