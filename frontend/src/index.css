@@ -127,3 +127,17 @@
 .account-dropdown button{width:100%;display:flex;align-items:center;gap:9px;padding:10px;border:0;border-radius:7px;background:transparent;color:#34445d;text-align:left;font-size:13px;cursor:pointer}
 .account-dropdown button:hover{background:#f1f5ff;color:#365db7}
 .topbar .avatar{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#e5ebff;color:#405fae;font:800 14px Manrope,sans-serif}
+
+
+/* Nova application preparation and browser-extension sync */
+.extension-sync-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0;padding:11px 13px;background:#f3f6fc;border:1px solid var(--line);border-radius:9px}
+.extension-sync-row small{font-size:9px;color:#637187}
+.draft-modal{width:min(900px,100%)}
+.draft-modal .modal-head{align-items:flex-start}
+.draft-modal .modal-head p{font-size:10px;color:#7a879b;margin:5px 0 0}
+.draft-review-note{display:flex;align-items:flex-start;gap:9px;padding:11px 13px;background:#edf4ff;color:#314c76;border-radius:9px;font-size:10px;line-height:1.5;margin-bottom:12px}
+.draft-review-note svg{flex:0 0 auto}
+.draft-fields{max-height:52vh;overflow:auto;padding:3px 5px 3px 0}
+.draft-fields label{text-transform:capitalize}
+.draft-actions{flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:560px){.draft-actions{display:grid;grid-template-columns:1fr}.draft-actions button{width:100%}}
