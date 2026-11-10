@@ -88,3 +88,9 @@
 .platform-inline .muted{font-size:12px;line-height:1.5;margin:12px 0 0;color:#64748b}
 .required-label{font-size:11px;color:#b45309;font-weight:700;margin-left:5px}
 @media(max-width:640px){.platform-inline{padding:13px}.platform-inline-options{grid-template-columns:1fr 1fr}.platform-inline-options label{font-size:12px;padding:9px 8px}}
+
+.platform-choice{display:flex;align-items:center;gap:8px;border:1px solid #e2e8f0;border-radius:10px;padding:0 9px 0 0;min-width:0}
+.platform-choice.chosen{border-color:#7897d4;background:#f3f7ff}
+.platform-choice label{display:flex;align-items:center;gap:8px;flex:1;border:0;padding:10px 0 10px 10px;min-width:0}
+.platform-choice>a{font-size:11px;color:#315db5;text-decoration:none;white-space:nowrap;padding:6px}
+.platform-choice>a:hover{text-decoration:underline}
