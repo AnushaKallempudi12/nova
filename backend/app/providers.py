@@ -230,7 +230,7 @@ async def search_public_company_boards(
         "ziprecruiter": "ZipRecruiter", "glassdoor": "Glassdoor",
         "monster": "Monster", "handshake": "Handshake", "usajobs": "USAJOBS",
         "flexjobs": "FlexJobs", "weworkremotely": "We Work Remotely",
-        "naukri": "Naukri", "foundit": "Foundit", "instahyre": "Instahyre",
+        "naukri": "Naukri", "foundit": "Foundit", "instahyre": "Instahyre", "internshala": "Internshala", "ncs": "National Career Service",
         "cutshort": "Cutshort", "hirist": "Hirist", "iimjobs": "IIMJobs",
         "shine": "Shine", "timesjobs": "TimesJobs", "freshersworld": "Freshersworld", "apna": "Apna",
         "career": "All company career websites", "other": "Other supported portals",
@@ -241,6 +241,9 @@ async def search_public_company_boards(
         "company-capgemini": "Capgemini Careers", "company-deloitte": "Deloitte Careers",
         "company-amazon": "Amazon Careers", "company-google": "Google Careers",
         "company-microsoft": "Microsoft Careers",
+        "company-flipkart": "Flipkart Careers", "company-phonepe": "PhonePe Careers",
+        "company-swiggy": "Swiggy Careers", "company-razorpay": "Razorpay Careers",
+        "company-zoho": "Zoho Careers",
     }
     selected = set(selected_platforms if selected_platforms is not None else
                    ["greenhouse", "lever", "ashby", "smartrecruiters", "career"])
@@ -257,6 +260,8 @@ async def search_public_company_boards(
         "company-techmahindra": "Tech Mahindra", "company-cognizant": "Cognizant",
         "company-capgemini": "Capgemini", "company-deloitte": "Deloitte",
         "company-amazon": "Amazon", "company-google": "Google", "company-microsoft": "Microsoft",
+        "company-flipkart": "Flipkart", "company-phonepe": "PhonePe", "company-swiggy": "Swiggy",
+        "company-razorpay": "Razorpay", "company-zoho": "Zoho",
     }
     selected_company_names = [company_name_by_id[key] for key in company_source_ids if key in company_name_by_id]
     external = [platform_names[key] for key in sorted(selected) if key in platform_names and not key.startswith("company-")]
