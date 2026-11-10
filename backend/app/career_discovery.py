@@ -134,7 +134,7 @@ def normalize_jsonld_jobs(document: str, company: str, source_url: str) -> list[
                 "location": _location(item),
                 "description": _text(item.get("description"))[:1600],
                 "url": str(url),
-                "source": "Company Career Site",
+                "source": f"{company} Careers",
                 "updated_at": item.get("datePosted"),
                 "employment_type": item.get("employmentType"),
                 "discovery_method": "schema.org JobPosting",
