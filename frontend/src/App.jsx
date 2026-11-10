@@ -5,7 +5,7 @@ const API=import.meta.env.VITE_API_BASE_URL||(import.meta.env.PROD?"":"http://lo
 const supabaseUrl=import.meta.env.VITE_SUPABASE_URL||"";
 const supabaseKey=import.meta.env.VITE_SUPABASE_ANON_KEY||"";
 const supabase=supabaseUrl&&supabaseKey?createClient(supabaseUrl,supabaseKey):null;
-const STATUSES=["Saved","Applied","Pending","Responded","Interview","Rejected","Offer","Withdrawn"];
+const STATUSES=["Saved","In Progress","Ready for Review","Awaiting Submission","Submitted","Applied","Pending","Responded","Interview","Rejected","Offer","Withdrawn"];
 const PLATFORMS=[
 {id:"ashby",name:"Ashby career pages",detail:"Direct employer job-board feeds when configured",search:"Live ATS search",apply:"Employer website",url:""},
 {id:"builtin",name:"Built In",detail:"Technology companies and engineering roles",search:"Official site search",apply:"Manual",url:"https://builtin.com/jobs"},
