@@ -111,3 +111,19 @@
 .dashboard-banner{display:flex;align-items:center;justify-content:space-between;gap:20px}
 .dashboard-banner .dashboard-actions{flex-shrink:0}
 @media(max-width:700px){.dashboard-banner{align-items:flex-start;flex-direction:column}.dashboard-banner .dashboard-actions{width:100%}.dashboard-banner .dashboard-actions button{flex:1}}
+
+
+/* Account menu and consistent email-initial avatars */
+.user-mini.account-menu-wrap{position:relative;display:block;padding:10px 8px}
+.account-trigger{width:100%;display:flex;align-items:center;gap:10px;padding:4px;border:0;background:transparent;color:#e8edf7;text-align:left;cursor:pointer}
+.account-trigger:hover{background:#33445e;border-radius:9px}
+.account-avatar{width:34px;height:34px;flex:0 0 34px;border-radius:50%;display:grid;place-items:center;background:#e5ebff;color:#405fae;font:800 14px Manrope,sans-serif}
+.account-identity{min-width:0;flex:1;display:grid;gap:3px}
+.account-identity b{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:#f3f6fc}
+.account-identity small{font-size:9px;color:#aab7ca}
+.account-trigger>svg{color:#aab7ca;flex-shrink:0}
+.account-dropdown{position:absolute;left:8px;right:8px;bottom:calc(100% - 2px);z-index:40;padding:7px;background:#fff;border:1px solid #e1e7f0;border-radius:10px;box-shadow:0 12px 30px #0b183333}
+.account-dropdown .account-email{padding:8px 9px 10px;border-bottom:1px solid #edf0f5;margin-bottom:5px;color:#718096;font-size:11px;overflow-wrap:anywhere}
+.account-dropdown button{width:100%;display:flex;align-items:center;gap:9px;padding:10px;border:0;border-radius:7px;background:transparent;color:#34445d;text-align:left;font-size:13px;cursor:pointer}
+.account-dropdown button:hover{background:#f1f5ff;color:#365db7}
+.topbar .avatar{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#e5ebff;color:#405fae;font:800 14px Manrope,sans-serif}
