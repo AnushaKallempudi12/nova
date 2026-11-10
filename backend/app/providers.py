@@ -174,23 +174,33 @@ async def _ashby(client:httpx.AsyncClient,board:str,query:str,location:str):
     return jobs,{"provider":"Ashby","board":board,"status":"ok","count":len(jobs)}
 
 async def _confirm_job_page(client: httpx.AsyncClient, job: dict) -> bool:
-    """Only return jobs whose actual hosted application page is currently reachable."""
-    hosts = {
+    """Confirm the public application destination without allowing cross-host redirects."""
+    provider_hosts = {
         "Greenhouse": {"boards.greenhouse.io", "job-boards.greenhouse.io"},
         "Lever": {"jobs.lever.co"},
         "Ashby": {"jobs.ashbyhq.com"},
+        "SmartRecruiters": {"jobs.smartrecruiters.com", "careers.smartrecruiters.com"},
     }.get(job.get("source"), set())
     parsed = urlparse(job.get("url") or "")
-    if parsed.scheme.lower() != "https" or (parsed.hostname or "").lower() not in hosts:
+    allowed_host = (job.get("allowed_host") or "").lower()
+    initial_host = (parsed.hostname or "").lower()
+    if parsed.scheme.lower() != "https" or not initial_host:
+        return False
+    allowed = initial_host in provider_hosts or (
+        allowed_host and (initial_host == allowed_host or initial_host.endswith("." + allowed_host))
+    )
+    if not allowed:
         return False
     try:
         response = await client.get(job["url"], follow_redirects=True)
         final = urlparse(str(response.url))
-        return (
-            response.status_code < 400
-            and final.scheme.lower() == "https"
-            and (final.hostname or "").lower() in hosts
+        final_host = (final.hostname or "").lower()
+        same_trusted_host = (
+            final_host in provider_hosts
+            or (allowed_host and (final_host == allowed_host or final_host.endswith("." + allowed_host)))
+            or (initial_host in provider_hosts and final_host == initial_host)
         )
+        return response.status_code < 400 and final.scheme.lower() == "https" and bool(same_trusted_host)
     except (httpx.HTTPError, asyncio.TimeoutError, KeyError):
         return False
 
@@ -248,7 +258,10 @@ async def search_public_company_boards(
                         return await _lever(client, identifier, query, location)
                     if provider == "Ashby":
                         return await _ashby(client, identifier, query, location)
-                    return await search_smartrecruiters(client, query, location, [identifier], limit)
+                    rows, source_statuses = await search_smartrecruiters(client, query, location, [identifier], limit)
+                    return rows, (source_statuses[0] if source_statuses else {
+                        "provider": "SmartRecruiters", "company": identifier, "status": "ok", "count": len(rows)
+                    })
 
         tasks = []
         for provider, (enabled, boards) in provider_selection.items():
