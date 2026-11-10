@@ -11,7 +11,7 @@ Nova is a private job-search workspace with authenticated accounts, saved resume
 - Expanded job-source catalog: LinkedIn, Indeed, Dice, Wellfound, Built In, ZipRecruiter, Glassdoor, Monster, Handshake, USAJOBS, FlexJobs, We Work Remotely, and employer ATS career pages.
 - Live public employer-board search across Greenhouse, Lever, Ashby and optional SmartRecruiters company boards.
 - Universal employer career-site discovery across a starter registry including Google, Apple, Amazon, Microsoft, Walmart, Meta, NVIDIA, Adobe, Salesforce and IBM. Public schema.org JobPosting data is extracted when the employer page exposes it.
-- Optional Google Programmable Search integration searches the registered employer domains for role-specific career listings. Wider coverage requires a Google Custom Search API key and Search Engine ID.
+- Optional Google Programmable Search integration searches the wider web for role-specific employer career listings, filters known job aggregators, and checks that results point to employer career paths or recognized ATS hosts. Searching for a named company also supports employers outside the starter registry. This requires a Google Custom Search API key and Search Engine ID configured for web-wide search.
 - Additional official career sites can be registered with `NOVA_CAREER_SITES`; this avoids pretending every company exposes a common public API.
 - Editable cover-letter drafts generated from saved resume details and job-description keywords. Drafts are saved to the user's account. The generator is template-based and does not claim to use a hosted AI model.
 - Authenticated application tracker and dashboard.
@@ -61,7 +61,7 @@ The original uploaded resume file is not retained. Only extracted text, filename
 - `LEVER_SITE_NAMES`: comma-separated public Lever site identifiers.
 - `ASHBY_BOARD_NAMES`: comma-separated public Ashby board identifiers.
 - `SMARTRECRUITERS_COMPANIES`: comma-separated public SmartRecruiters company identifiers.
-- `GOOGLE_CSE_API_KEY` and `GOOGLE_CSE_CX`: enable role-specific search results restricted to registered employer domains. Configure a Google Programmable Search Engine and API key before setting these values.
+- `GOOGLE_CSE_API_KEY` and `GOOGLE_CSE_CX`: enable broader role-specific career-site search across the web, including companies outside the starter registry. Configure a Google Programmable Search Engine for web-wide search and an API key before setting these values.
 - `NOVA_CAREER_SITES`: optional JSON object, for example `{"Example Corp":{"domain":"example.com","url":"https://careers.example.com"}}`. Only HTTPS URLs are accepted. Nova reads public structured job data; pages that render listings only in client-side scripts may not expose jobs to this fallback.
 
 LinkedIn, Indeed, Glassdoor, ZipRecruiter, Dice, Wellfound and other external portals remain official external destinations unless a permitted direct integration is configured. The career-site crawler only reads public pages and structured job data; it does not log in, bypass CAPTCHAs, or defeat access controls. Coverage varies by employer website.
