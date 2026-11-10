@@ -175,23 +175,23 @@ async def parse_resume(file:UploadFile=File(...)):
         match=re.search(pattern,clean,re.I|re.M)
         return match.group(1).strip(" \t|,;") if match else ""
     lines=[line.strip() for line in clean.splitlines() if line.strip()]
-    linkedin_match=re.search(r"(?:https?://)?(?:www\\.)?linkedin\\.com/in/[A-Za-z0-9_%./-]+",clean,re.I)
-    github_match=re.search(r"(?:https?://)?(?:www\\.)?github\\.com/[A-Za-z0-9_-]+",clean,re.I)
+    linkedin_match=re.search(r"(?:https?://)?(?:www\.)?linkedin\.com/in/[A-Za-z0-9_%./-]+",clean,re.I)
+    github_match=re.search(r"(?:https?://)?(?:www\.)?github\.com/[A-Za-z0-9_-]+",clean,re.I)
     name=""
     for line in lines[:8]:
         candidate=re.sub(r"[^A-Za-z .'-]","",line).strip()
         if 2<=len(candidate.split())<=4 and not re.search(r"resume|curriculum|engineer|developer|linkedin|github",candidate,re.I):
             name=candidate;break
     name_parts=name.split()
-    education_section=re.search(r"(?is)(?:education|academic background)(.*?)(?:\\n\\s*(?:experience|work history|skills|projects|certifications)\\b|$)",clean)
+    education_section=re.search(r"(?is)(?:education|academic background)(.*?)(?:\n\s*(?:experience|work history|skills|projects|certifications)\b|$)",clean)
     education_text=education_section.group(1).strip() if education_section else ""
     institution=""
     if education_text:
         for line in education_text.splitlines():
             if re.search(r"university|college|institute|school",line,re.I):
                 institution=line.strip(" |,");break
-    degree_match=re.search(r"(?i)\\b(Bachelor(?:'s)?|Master(?:'s)?|B\\.S\\.|M\\.S\\.|B\\.Tech|M\\.Tech|Associate|Ph\\.D\\.)[^\\n|]*",education_text or clean)
-    year_match=re.search(r"(?i)(?:20\\d{2}|19\\d{2})(?:\\s*[-–—]\s*(?:20\\d{2}|present))?",education_text or clean)
+    degree_match=re.search(r"(?i)\b(Bachelor(?:'s)?|Master(?:'s)?|B\.S\.|M\.S\.|B\.Tech|M\.Tech|Associate|Ph\.D\.)[^\n|]*",education_text or clean)
+    year_match=re.search(r"(?i)(?:20\d{2}|19\d{2})(?:\s*[-–—]\s*(?:20\d{2}|present))?",education_text or clean)
     parsed_profile={
       "first_name":name_parts[0] if name_parts else "",
       "last_name":" ".join(name_parts[1:]) if len(name_parts)>1 else "",
