@@ -62,7 +62,7 @@ const [page,setPage]=useState("dashboard"),[mobile,setMobile]=useState(false),[t
 const [workspace]=useState(()=>{let v=localStorage.getItem("nova-workspace-id");if(!v){v=crypto.randomUUID();localStorage.setItem("nova-workspace-id",v)}return v});
 const [api,setApi]=useState("checking"),[boardCount,setBoardCount]=useState(0),[apps,setApps]=useState([]);
 const [country,setCountry]=useState(()=>read("nova-country","USA"));
-const [selected,setSelected]=useState(()=>{const saved=read("nova-platforms",null);return Array.isArray(saved)?[...new Set(saved.filter(id=>(country==="India"?INDIA_SOURCE_IDS:USA_SOURCE_IDS).includes(id)))]:country==="India"?["naukri","linkedin","indeed","foundit",...INDIA_COMPANIES.map(x=>x.id)]:LIVE_SOURCE_IDS});
+const [selected,setSelected]=useState(()=>{const saved=read("nova-platforms",null);const filtered=Array.isArray(saved)?[...new Set(saved.filter(id=>(country==="India"?INDIA_SOURCE_IDS:USA_SOURCE_IDS).includes(id)))]:[];return filtered.length?filtered:country==="India"?["naukri","linkedin","indeed","foundit",...INDIA_COMPANIES.map(x=>x.id)]:LIVE_SOURCE_IDS;});
 const [useTavilyFallback,setUseTavilyFallback]=useState(false);
 const [prefs,setPrefs]=useState(()=>read("nova-preferences",{roles:"Software Engineer, Java Developer, Backend Engineer",location:"",work:["Remote","Hybrid","On-site"],experience:"Early career / 1–3 years",minMatch:70,maxPerDay:10}));
 const [resume,setResume]=useState(()=>read("nova-resume",null)),[resumeBusy,setResumeBusy]=useState(false),[resumeError,setResumeError]=useState("");
