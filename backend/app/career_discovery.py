@@ -26,6 +26,15 @@ COMPANY_CAREER_SITES = {
     "Adobe": {"domain": "adobe.com", "url": "https://careers.adobe.com/"},
     "Salesforce": {"domain": "salesforce.com", "url": "https://careers.salesforce.com/"},
     "IBM": {"domain": "ibm.com", "url": "https://www.ibm.com/careers/search"},
+    "TCS": {"domain": "tcs.com", "url": "https://www.tcs.com/careers"},
+    "Accenture": {"domain": "accenture.com", "url": "https://www.accenture.com/in-en/careers"},
+    "Infosys": {"domain": "infosys.com", "url": "https://www.infosys.com/careers/"},
+    "Wipro": {"domain": "wipro.com", "url": "https://careers.wipro.com/"},
+    "HCLTech": {"domain": "hcltech.com", "url": "https://www.hcltech.com/careers"},
+    "Tech Mahindra": {"domain": "techmahindra.com", "url": "https://www.techmahindra.com/en-in/careers/"},
+    "Cognizant": {"domain": "cognizant.com", "url": "https://careers.cognizant.com/india-en/"},
+    "Capgemini": {"domain": "capgemini.com", "url": "https://www.capgemini.com/in-en/careers/"},
+    "Deloitte": {"domain": "deloitte.com", "url": "https://www.deloitte.com/in/en/careers.html"},
 }
 # Optional JSON object: {"Company":{"domain":"company.com","url":"https://careers.company.com"}}
 try:
@@ -241,7 +250,7 @@ async def _tavily_search(client: httpx.AsyncClient, query: str, location: str,
 
 async def search_company_career_sites(client: httpx.AsyncClient, query: str, location: str,
                                       limit: int = 50, company: str = "",
-                                      use_tavily: bool = True) -> tuple[list[dict], list[dict]]:
+                                      use_tavily: bool = False, selected_companies: list[str] | None = None) -> tuple[list[dict], list[dict]]:
     """Inspect registered employer pages first; use Tavily only as a low-volume fallback."""
     jobs: list[dict] = []
     statuses: list[dict] = []
@@ -264,8 +273,10 @@ async def search_company_career_sites(client: httpx.AsyncClient, query: str, loc
                             "status": "error", "count": 0, "message": str(exc)[:160]}
 
     company_key = re.sub(r"\b(inc|incorporated|corp|corporation|llc|ltd|limited)\b", "", company.lower()).strip()
+    selected_names = {name.lower() for name in (selected_companies or [])}
     inspection_sites = [(name, site) for name, site in COMPANY_CAREER_SITES.items()
-                        if not company_key or company_key in name.lower() or name.lower() in company_key]
+                        if (selected_names and name.lower() in selected_names)
+                        or (not selected_names and (not company_key or company_key in name.lower() or name.lower() in company_key))]
     inspections = await asyncio.gather(*[
         inspect(name, site) for name, site in inspection_sites
     ])
