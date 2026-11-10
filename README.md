@@ -9,7 +9,7 @@ Nova is a private job-search workspace with authenticated accounts, saved resume
 - Optional profile fields; users can skip anything they do not want to provide.
 - Resume parsing for text-based PDF and DOCX files (10 MB maximum). The original upload is processed in memory; extracted resume text and detected skills are saved to the account database.
 - Expanded job-source catalog: LinkedIn, Indeed, Dice, Wellfound, Built In, ZipRecruiter, Glassdoor, Monster, Handshake, USAJOBS, FlexJobs, We Work Remotely, and employer ATS career pages.
-- Live public employer-board search for configured Greenhouse, Lever and Ashby boards. Other job platforms are official external links, not falsely described as API integrations.
+- Live public employer-board search across a starter set of Greenhouse, Lever and Ashby employer boards, plus additional board identifiers configured by the owner. Other job platforms are official external links, not falsely described as API integrations.
 - Editable cover-letter drafts generated from saved resume details and job-description keywords. Drafts are saved to the user's account. The generator is template-based and does not claim to use a hosted AI model.
 - Authenticated application tracker and dashboard.
 - Larger typography and clearer responsive controls.
