@@ -40,6 +40,8 @@ const [resume,setResume]=useState(()=>read("nova-resume",null)),[resumeBusy,setR
 const [role,setRole]=useState("Software Engineer"),[location,setLocation]=useState("United States"),[jobs,setJobs]=useState([]),[searching,setSearching]=useState(false),[searchMsg,setSearchMsg]=useState("");
 const [checks,setChecks]=useState({}),[checking,setChecking]=useState(""),[expanded,setExpanded]=useState(null),[filter,setFilter]=useState("All");
 const [modal,setModal]=useState(false),[editing,setEditing]=useState(null),[form,setForm]=useState(blank),[saving,setSaving]=useState(false),[toast,setToast]=useState("");
+const [profileData,setProfileData]=useState({}),[profileLoaded,setProfileLoaded]=useState(false);
+const [coverLetters,setCoverLetters]=useState([]),[coverRole,setCoverRole]=useState("Software Engineer"),[coverCompany,setCoverCompany]=useState(""),[jobDescription,setJobDescription]=useState(""),[coverBusy,setCoverBusy]=useState(false),[coverLetter,setCoverLetter]=useState(null);
 const notify=m=>{setToast(m);window.setTimeout(()=>setToast(""),3200)};
 const reqHeaders={"Content-Type":"application/json","Authorization":`Bearer ${session.access_token}`};
 const loadApps=async()=>{try{const r=await fetch(API+"/api/v2/applications",{headers:reqHeaders});if(!r.ok)throw Error();const d=await r.json();setApps(d.applications||[])}catch{setApi("offline")}};
