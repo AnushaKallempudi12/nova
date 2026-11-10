@@ -4,6 +4,7 @@ from unittest.mock import patch
 import httpx
 
 from backend.app.career_discovery import normalize_jsonld_jobs, _matches, _tavily_search
+from backend.app.providers import _confirm_job_page
 
 
 class CareerDiscoveryTests(unittest.TestCase):
@@ -80,6 +81,17 @@ class CareerDiscoveryTests(unittest.TestCase):
         self.assertEqual(len(jobs), 1)
         self.assertEqual(jobs[0]["source"], "Company Career Site")
         self.assertEqual(status["provider"], "Tavily Career Search")
+
+    def test_trusted_job_link_survives_automated_forbidden_response(self):
+        def handler(request):
+            return httpx.Response(403, request=request)
+        async def run():
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                return await _confirm_job_page(client, {
+                    "url": "https://boards.greenhouse.io/example/jobs/123",
+                    "source": "Greenhouse",
+                })
+        self.assertTrue(asyncio.run(run()))
 
 
 if __name__ == "__main__":
