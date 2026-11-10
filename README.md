@@ -81,3 +81,12 @@ Backend: `cd backend && pip install -r requirements.txt && uvicorn app.main:app 
 Frontend: `cd frontend && npm install && npm run dev`
 
 Configure the environment variables above before testing authenticated flows.
+
+
+## AI cover letter generation
+
+Nova's Cover Letter Studio uses the candidate's saved resume text, saved experience summary, and the full job description to create an editable 250–350-word letter. It prioritizes concrete, verified experience and avoids inventing qualifications, achievements, metrics, or company initiatives. When Google Programmable Search is configured, Nova can add a small set of attributable company research snippets and displays the source links beside the draft. If reliable company information is not found, the generator does not fabricate it.
+
+The backend requires an OpenAI API key configured as `NOVA_OPENAI_API_KEY` (or `OPENAI_API_KEY`) in Railway. The optional model override is `NOVA_COVER_LETTER_MODEL` (default `gpt-4.1-mini`). Optional company research uses the existing `GOOGLE_CSE_API_KEY` and `GOOGLE_CSE_CX` settings. Never commit real API keys to the repository.
+
+Before generation, the user must explicitly consent in Cover Letter Studio to sending their saved resume text, profile summary, and job description to the configured AI provider. Only company name and target role are sent to Google Programmable Search for company research. Generated drafts are saved to the user's account and remain editable; the user must verify the facts and approve the final letter before submitting it.
