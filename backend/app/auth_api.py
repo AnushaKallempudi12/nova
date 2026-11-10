@@ -57,6 +57,7 @@ class ApplicationDraft(Base):
     id:Mapped[int]=mapped_column(Integer,primary_key=True,index=True)
     user_id:Mapped[str]=mapped_column(String(128),index=True)
     application_id:Mapped[Optional[int]]=mapped_column(Integer,nullable=True,index=True)
+    job_id:Mapped[str]=mapped_column(String(300),default="")
     company:Mapped[str]=mapped_column(String(200))
     role:Mapped[str]=mapped_column(String(300))
     source:Mapped[str]=mapped_column(String(100),default="Company Career Site")
@@ -204,7 +205,7 @@ APPLICATION_FIELD_KEYS={
 }
 
 def _draft_json(row:ApplicationDraft):
-    return {"id":row.id,"application_id":row.application_id,"company":row.company,"role":row.role,
+    return {"id":row.id,"application_id":row.application_id,"job_id":row.job_id,"company":row.company,"role":row.role,
             "source":row.source,"job_url":row.job_url,"job_description":row.job_description,
             "fields":row.fields or {},"missing_fields":row.missing_fields or [],
             "status":row.status,"created_at":row.created_at.isoformat() if row.created_at else None}
@@ -257,12 +258,13 @@ def prepare_application(payload:ApplicationPrepareInput,user=Depends(current_use
 
         draft=db.query(ApplicationDraft).filter_by(user_id=user["id"],job_url=payload.job_url).first()
         if draft is None:
-            draft=ApplicationDraft(user_id=user["id"],application_id=application.id,company=payload.company,
+            draft=ApplicationDraft(user_id=user["id"],application_id=application.id,job_id=payload.job_id,company=payload.company,
                 role=payload.role,source=payload.source,job_url=payload.job_url,
                 job_description=payload.job_description,fields=fields,missing_fields=missing,status=status)
             db.add(draft)
         else:
             draft.application_id=application.id
+            draft.job_id=payload.job_id
             draft.company=payload.company
             draft.role=payload.role
             draft.source=payload.source
