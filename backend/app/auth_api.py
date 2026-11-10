@@ -301,7 +301,8 @@ def update_application_draft(draft_id:int,payload:ApplicationDraftUpdate,user=De
         if not row.fields.get("full_name"): row.missing_fields.append("full_name")
         if not row.fields.get("email"): row.missing_fields.append("email")
         if not row.fields.get("resume_filename"): row.missing_fields.append("resume")
-        row.status=payload.status
+        if row.status!="Submitted":
+            row.status=payload.status
         if row.application_id:
             application=db.query(UserApplication).filter_by(id=row.application_id,user_id=user["id"]).first()
             if application and application.status!="Submitted":
