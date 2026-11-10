@@ -13,7 +13,7 @@ Nova is a private job-search workspace with authenticated accounts, saved resume
 - Universal employer career-site discovery across a starter registry including Google, Apple, Amazon, Microsoft, Walmart, Meta, NVIDIA, Adobe, Salesforce and IBM. Public schema.org JobPosting data is extracted when the employer page exposes it.
 - Optional Tavily Search integration discovers role-specific listings on employer career sites and recognized ATS hosts. Searching for a named company also supports employers outside the starter registry. Configure `TAVILY_API_KEY` on the backend; without it, Nova continues using direct ATS feeds and public JobPosting structured data.
 - Additional official career sites can be registered with `NOVA_CAREER_SITES`; this avoids pretending every company exposes a common public API.
-- Editable cover-letter drafts generated from saved resume details and job-description keywords. Drafts are saved to the user's account. The generator is template-based and does not claim to use a hosted AI model.
+- Editable cover-letter drafts generated from saved resume details and job-description keywords. Drafts are saved to the user's account. The generator uses the configured Gemini or OpenAI model and produces editable, grounded drafts.
 - Authenticated application tracker and dashboard.
 - Nova Apply preparation flow: verified jobs can create an account-scoped application draft, prefill saved profile details, request review, and create/update the Dashboard record automatically.
 - Optional Chrome/Chromium browser extension that fills supported employer form fields after the user explicitly clicks Autofill. Sensitive eligibility questions and resume file uploads remain manual.
@@ -66,7 +66,7 @@ The original uploaded resume file is not retained. Only extracted text, filename
 - `TAVILY_API_KEY`: enables broader role-specific discovery across public employer career pages and recognized ATS hosts, including companies outside the starter registry.
 - `NOVA_CAREER_SITES`: optional JSON object, for example `{"Example Corp":{"domain":"example.com","url":"https://careers.example.com"}}`. Only HTTPS URLs are accepted. Nova reads public structured job data; pages that render listings only in client-side scripts may not expose jobs to this fallback.
 
-LinkedIn, Indeed, Glassdoor, ZipRecruiter, Dice, Wellfound and other external portals remain official external destinations unless a permitted direct integration is configured. The career-site crawler only reads public pages and structured job data; it does not log in, bypass CAPTCHAs, or defeat access controls. Coverage varies by employer website.
+LinkedIn, Indeed, Glassdoor, ZipRecruiter, Dice, Wellfound and other external portals open their own search pages from Nova; they are not scraped or represented as direct integrations. Users can select those destinations and launch a prefilled search. The career-site crawler only reads public pages and structured job data; it does not log in, bypass CAPTCHAs, or defeat access controls. Coverage varies by employer website.
 
 ## Nova Apply and application safety
 
