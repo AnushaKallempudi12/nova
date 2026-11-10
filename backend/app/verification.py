@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 
 import httpx
 
-from .providers import COMPANY_NAMES, GREENHOUSE_BOARDS, LEVER_SITES
+from .providers import ASHBY_BOARDS, COMPANY_NAMES, GREENHOUSE_BOARDS, LEVER_SITES
 
 # Curated company domains. This registry is intentionally explicit: an unknown
 # company is never silently treated as verified.
@@ -45,6 +45,8 @@ def _company_slug(job_id: str) -> tuple[str, str] | None:
         return provider, slug
     if provider == "lever" and slug in LEVER_SITES:
         return provider, slug
+    if provider == "ashby" and slug in ASHBY_BOARDS:
+        return provider, slug
     return None
 
 
@@ -55,11 +57,17 @@ async def _load_published_job(client: httpx.AsyncClient, provider: str, slug: st
         response.raise_for_status()
         payload = response.json()
         return next((item for item in payload.get("jobs", []) if str(item.get("id")) == external_id), None)
-    endpoint = f"https://api.lever.co/v0/postings/{slug}?mode=json"
+    if provider == "lever":
+        endpoint = f"https://api.lever.co/v0/postings/{slug}?mode=json"
+        response = await client.get(endpoint)
+        response.raise_for_status()
+        payload = response.json()
+        return next((item for item in payload if str(item.get("id")) == external_id), None) if isinstance(payload, list) else None
+    endpoint = f"https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true"
     response = await client.get(endpoint)
     response.raise_for_status()
     payload = response.json()
-    return next((item for item in payload if str(item.get("id")) == external_id), None) if isinstance(payload, list) else None
+    return next((item for item in payload.get("jobs", []) if str(item.get("id")) == external_id), None)
 
 
 async def _check_company_domain(client: httpx.AsyncClient, domain: str) -> tuple[str, str]:
@@ -92,7 +100,7 @@ async def verify_job_listing(job_id: str, submitted_url: str, submitted_title: s
     # Greenhouse now serves some hosted job pages from job-boards.greenhouse.io,
     # while older listings and feeds may still use boards.greenhouse.io.
     # Match exact hostnames (never suffix/lookalike domains) and the board slug.
-    ats_hosts = {"boards.greenhouse.io", "job-boards.greenhouse.io"} if provider == "greenhouse" else {"jobs.lever.co"}
+    ats_hosts = {"boards.greenhouse.io", "job-boards.greenhouse.io"} if provider == "greenhouse" else ({"jobs.lever.co"} if provider == "lever" else {"jobs.ashbyhq.com"})
     # Some employers use a custom careers domain as the Greenhouse-hosted
     # application URL. Trust that host only when it is the curated official
     # company domain, then require an exact match with the live ATS feed below.
@@ -108,7 +116,7 @@ async def verify_job_listing(job_id: str, submitted_url: str, submitted_title: s
     if (
         submitted.scheme.lower() != "https"
         or (not is_ats_host and not is_official_company_host)
-        or (is_ats_host and path_slug.lower() != slug.lower())
+        or (is_ats_host and provider != "ashby" and path_slug.lower() != slug.lower())
     ):
         expected_hosts = " or ".join(sorted(allowed_hosts))
         return {
@@ -145,10 +153,10 @@ async def verify_job_listing(job_id: str, submitted_url: str, submitted_title: s
                 "apply_url": None,
             }
 
-        live_title = published.get("title") if provider == "greenhouse" else published.get("text")
-        live_url = published.get("absolute_url") if provider == "greenhouse" else (published.get("hostedUrl") or published.get("applyUrl"))
+        live_title = published.get("title") if provider == "greenhouse" else (published.get("text") if provider == "lever" else published.get("title"))
+        live_url = published.get("absolute_url") if provider == "greenhouse" else ((published.get("hostedUrl") or published.get("applyUrl")) if provider == "lever" else (published.get("jobUrl") or published.get("applyUrl")))
         live_url = live_url or ""
-        live_company = expected_company
+        live_company = expected_company if provider != "ashby" else (published.get("companyName") or expected_company)
 
         if _canonical_job_url(live_url) != _canonical_job_url(submitted_url) or (live_title or "").strip().casefold() != submitted_title.strip().casefold() or live_company.strip().casefold() != submitted_company.strip().casefold():
             return {
