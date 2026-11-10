@@ -3,6 +3,7 @@ import html
 import os
 import re
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -189,7 +190,8 @@ async def search_public_company_boards(query: str, location: str, limit: int = 5
 
 
 # Ashby public job-board API. Configure public board identifiers in ASHBY_BOARD_NAMES.
-ASHBY_BOARDS=list(dict.fromkeys(["Ramp","Vanta","Linear","Watershed","Replit","Modal","Baseten","Browserbase","Notion","Perplexity","Cohere","Zip","Sierra","Decagon","Cursor"]+[v.strip() for v in os.getenv("ASHBY_BOARD_NAMES","").split(",") if v.strip() and TOKEN_PATTERN.fullmatch(v.strip())]))[:40]
+# Ashby board slugs are case-sensitive in hosted URLs and API paths.
+ASHBY_BOARDS=list(dict.fromkeys([v.lower() for v in ["ramp","vanta","linear","watershed","replit","modal","baseten","browserbase","notion","perplexity","cohere","zip","sierra","decagon","cursor"]]+[v.strip().lower() for v in os.getenv("ASHBY_BOARD_NAMES","").split(",") if v.strip() and TOKEN_PATTERN.fullmatch(v.strip())]))[:40]
 
 async def _ashby(client:httpx.AsyncClient,board:str,query:str,location:str):
     response=await client.get(f"https://api.ashbyhq.com/posting-api/job-board/{board}?includeCompensation=true")
@@ -197,8 +199,12 @@ async def _ashby(client:httpx.AsyncClient,board:str,query:str,location:str):
     payload=response.json()
     jobs=[]
     for item in payload.get("jobs",[]):
-        job={"id":f"ashby:{board}:{item.get('id')}","title":item.get("title","Untitled role"),"company":item.get("companyName") or board.title(),"location":item.get("location","") or ("Remote" if item.get("isRemote") else ""),"description":_plain_text(item.get("descriptionPlain") or item.get("descriptionHtml") or "")[:1200],"url":item.get("jobUrl") or item.get("applyUrl") or "","source":"Ashby","updated_at":item.get("publishedAt")}
-        if job["url"].startswith("https://") and _matches(job,query,location):
+        job_url=item.get("jobUrl") or item.get("applyUrl") or ""
+        parsed=urlparse(job_url)
+        if parsed.scheme.lower()!="https" or (parsed.hostname or "").lower()!="jobs.ashbyhq.com":
+            continue
+        job={"id":f"ashby:{board}:{item.get('id')}","title":item.get("title","Untitled role"),"company":item.get("companyName") or board.title(),"location":item.get("location","") or ("Remote" if item.get("isRemote") else ""),"description":_plain_text(item.get("descriptionPlain") or item.get("descriptionHtml") or "")[:1200],"url":job_url,"source":"Ashby","updated_at":item.get("publishedAt")}
+        if _matches(job,query,location):
             jobs.append(job)
     return jobs,{"provider":"Ashby","board":board,"status":"ok","count":len(jobs)}
 
