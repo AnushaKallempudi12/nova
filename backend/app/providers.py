@@ -104,8 +104,10 @@ def _matches(job: dict[str, Any], query: str, location: str) -> bool:
     actual_location = str(job.get("location", ""))
     if wanted_location in {"united states", "usa", "us"}:
         return _is_us_location(actual_location) or "remote" in actual_location.lower()
-    if wanted_location and wanted_location not in actual_location.lower():
-        return False
+    if wanted_location:
+        wanted_parts = [part.strip() for part in wanted_location.split(",") if part.strip()]
+        if not all(part in actual_location.lower() for part in wanted_parts):
+            return False
     return True
 
 async def _greenhouse(client: httpx.AsyncClient, board: str, query: str, location: str) -> tuple[list[dict], dict]:
@@ -200,9 +202,15 @@ async def _confirm_job_page(client: httpx.AsyncClient, job: dict) -> bool:
             or (allowed_host and (final_host == allowed_host or final_host.endswith("." + allowed_host)))
             or (initial_host in provider_hosts and final_host == initial_host)
         )
-        return response.status_code < 400 and final.scheme.lower() == "https" and bool(same_trusted_host)
+        # A trusted employer/ATS host may block automated checks (403/405), rate-limit
+        # probes, or briefly fail. Keep these links for user review; reject clear 404/410
+        # responses and any redirect outside the trusted HTTPS host.
+        return final.scheme.lower() == "https" and bool(same_trusted_host) and (
+            response.status_code < 400 or response.status_code in {401, 403, 405, 429, 500, 502, 503, 504}
+        )
     except (httpx.HTTPError, asyncio.TimeoutError, KeyError):
-        return False
+        # A timeout is inconclusive, not proof that a trusted job URL is invalid.
+        return bool(allowed_host or initial_host in provider_hosts)
 
 
 async def search_public_company_boards(
@@ -333,7 +341,7 @@ async def search_public_company_boards(
         "unavailable_or_unconfirmed": excluded,
         "message": (
             f"Found {len(jobs)} unique listings across selected sources. "
-            f"Showing {len(checked_jobs)} with reachable official application pages; "
-            f"excluded {excluded} unavailable or unconfirmed links."
+            f"Showing {len(checked_jobs)} with trusted official application links; "
+            f"excluded {excluded} links with clear invalid responses."
         ),
     }
