@@ -177,7 +177,7 @@ def create_app(payload:ApplicationInput,user=Depends(current_user)):
 
 @router.put("/applications/{app_id}")
 def update_app(app_id:int,payload:ApplicationInput,user=Depends(current_user)):
-    if payload.status not in {"Saved","Applied","Pending","Responded","Interview","Rejected","Offer","Withdrawn"}:
+    if payload.status not in {"Saved","In Progress","Ready for Review","Awaiting Submission","Submitted","Applied","Pending","Responded","Interview","Rejected","Offer","Withdrawn"}:
         raise HTTPException(status_code=422,detail="Unsupported application status.")
     with SessionLocal() as db:
         r=db.query(UserApplication).filter_by(id=app_id,user_id=user["id"]).first()
