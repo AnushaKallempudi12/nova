@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Nova Autofill</title>
+  <style>
+    body{font:14px system-ui,sans-serif;width:280px;margin:0;padding:18px;color:#17243a;background:#f7f9fc}
+    h1{font-size:18px;margin:0 0 6px}p{font-size:12px;line-height:1.5;color:#637187}
+    button{width:100%;border:0;border-radius:8px;padding:11px;margin-top:9px;font-weight:650;cursor:pointer;background:#1c4f91;color:#fff}
+    button.secondary{background:#e8edf5;color:#24344d}button:disabled{opacity:.55;cursor:default}
+    #status{min-height:34px;margin-top:10px;font-size:12px;color:#40516b}.brand{color:#1c4f91;font-weight:800}
+  </style>
+</head>
+<body>
+  <div class="brand">nova.</div>
+  <h1>Application Autofill</h1>
+  <p>Sync your profile from Nova, then open an employer application and autofill supported fields.</p>
+  <button id="autofill">Autofill this page</button>
+  <button id="clear" class="secondary">Clear saved profile from this device</button>
+  <div id="status" role="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>
