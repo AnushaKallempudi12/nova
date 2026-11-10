@@ -15,6 +15,8 @@ Nova is a private job-search workspace with authenticated accounts, saved resume
 - Additional official career sites can be registered with `NOVA_CAREER_SITES`; this avoids pretending every company exposes a common public API.
 - Editable cover-letter drafts generated from saved resume details and job-description keywords. Drafts are saved to the user's account. The generator is template-based and does not claim to use a hosted AI model.
 - Authenticated application tracker and dashboard.
+- Nova Apply preparation flow: verified jobs can create an account-scoped application draft, prefill saved profile details, request review, and create/update the Dashboard record automatically.
+- Optional Chrome/Chromium browser extension that fills supported employer form fields after the user explicitly clicks Autofill. Sensitive eligibility questions and resume file uploads remain manual.
 - Larger typography and clearer responsive controls.
 
 ## Required configuration before first launch
@@ -66,9 +68,11 @@ The original uploaded resume file is not retained. Only extracted text, filename
 
 LinkedIn, Indeed, Glassdoor, ZipRecruiter, Dice, Wellfound and other external portals remain official external destinations unless a permitted direct integration is configured. The career-site crawler only reads public pages and structured job data; it does not log in, bypass CAPTCHAs, or defeat access controls. Coverage varies by employer website.
 
-## Application safety
+## Nova Apply and application safety
 
-Nova does not automatically submit applications. Users complete employer forms and confirm submission before changing a tracker record to Applied. Work authorization, sponsorship, demographic and legal declarations must be answered and approved by the user. Job matching currently reports exact resume-skill keyword overlap, not a semantic or validated prediction. Results show matched resume skills so users can understand the score.
+Selecting Apply with Nova creates or updates an application record automatically and opens an editable review of saved profile information. The optional local browser extension can fill supported text, email, phone, textarea and select fields on the employer's current page after the user clicks its toolbar action. The extension never submits an application, never stores employer passwords, never overwrites non-empty fields, and deliberately skips work authorization, visa, sponsorship, demographic, salary and other sensitive questions. Users attach their resume file manually because Nova retains extracted resume text rather than the original upload. After submitting on the employer website, users can confirm the outcome in Nova to mark the Dashboard record Submitted. This confirmation is user-reported, not an independently verified employer receipt.
+
+Install and use the extension by following `browser-extension/README.md`. Job matching currently reports exact resume-skill keyword overlap, not a semantic or validated prediction. Results show matched resume skills so users can understand the score.
 
 ## Local development
 
