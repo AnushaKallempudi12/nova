@@ -95,11 +95,11 @@ def _job_postings(value: Any) -> list[dict[str, Any]]:
 
 def normalize_jsonld_jobs(document: str, company: str, source_url: str) -> list[dict[str, Any]]:
     """Extract only schema.org JobPosting records from a fetched public page."""
+    from urllib.parse import urljoin
+
     results = []
-    for match in re.finditer(
-        r'<script[^>]+type=["\\']application/ld\\+json["\\'][^>]*>(.*?)</script>',
-        document or "", flags=re.IGNORECASE | re.DOTALL,
-    ):
+    script_pattern = r"""<script[^>]+type=["']application/ld\+json["'][^>]*>(.*?)</script>"""
+    for match in re.finditer(script_pattern, document or "", flags=re.IGNORECASE | re.DOTALL):
         raw = html.unescape(match.group(1)).strip()
         try:
             payload = json.loads(raw)
@@ -108,7 +108,6 @@ def normalize_jsonld_jobs(document: str, company: str, source_url: str) -> list[
         for item in _job_postings(payload):
             url = item.get("url") or source_url
             if str(url).startswith("/"):
-                from urllib.parse import urljoin
                 url = urljoin(source_url, str(url))
             parsed = urlparse(str(url))
             if parsed.scheme != "https" or not parsed.hostname:
@@ -120,7 +119,7 @@ def normalize_jsonld_jobs(document: str, company: str, source_url: str) -> list[
             employer_name = _text(employer.get("name")) if isinstance(employer, dict) else ""
             results.append({
                 "id": f"career:{company.lower().replace(' ', '-')}:"
-                      hashlib.sha1(str(url).encode()).hexdigest()[:12],
+                      + hashlib.sha1(str(url).encode()).hexdigest()[:12],
                 "title": title[:300],
                 "company": employer_name or company,
                 "location": _location(item),
