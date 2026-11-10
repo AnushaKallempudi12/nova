@@ -81,6 +81,22 @@ async def _check_company_domain(client: httpx.AsyncClient, domain: str) -> tuple
         return "review", "The registered company website could not be reached during this check."
 
 
+async def _check_ashby_hosted_page(client: httpx.AsyncClient, url: str) -> tuple[str, str]:
+    """Confirm the actual Ashby hosted page still resolves before enabling Apply."""
+    try:
+        response = await client.get(url, follow_redirects=True)
+        final = urlparse(str(response.url))
+        if response.status_code in (404, 410):
+            return "fail", f"Ashby returned HTTP {response.status_code}; this job page is no longer available."
+        if response.status_code >= 400:
+            return "review", f"Ashby returned HTTP {response.status_code}; Nova could not confirm the application page."
+        if final.scheme != "https" or (final.hostname or "").lower() != "jobs.ashbyhq.com":
+            return "fail", "The hosted application page redirected away from Ashby's official job domain."
+        return "pass", f"The live Ashby application page responded with HTTP {response.status_code}."
+    except (httpx.HTTPError, asyncio.TimeoutError):
+        return "review", "The Ashby application page could not be reached; Nova will not enable the application link."
+
+
 async def verify_job_listing(job_id: str, submitted_url: str, submitted_title: str, submitted_company: str) -> dict:
     parsed_id = _company_slug(job_id)
     if not parsed_id:
@@ -170,11 +186,29 @@ async def verify_job_listing(job_id: str, submitted_url: str, submitted_title: s
                 "apply_url": None,
             }
 
+        if provider == "ashby":
+            page_status, page_detail = await _check_ashby_hosted_page(client, live_url)
+            if page_status != "pass":
+                return {
+                    "status": "Needs review" if page_status == "review" else "Listing unavailable",
+                    "risk_level": "medium" if page_status == "review" else "high",
+                    "company": live_company,
+                    "summary": "The job exists in Ashby's feed, but Nova could not confirm that its hosted application page is usable.",
+                    "checks": [
+                        {"name": "Live employer listing", "status": "pass", "detail": "The exact job ID and title were found in the employer's current Ashby feed."},
+                        {"name": "Ashby application page", "status": page_status, "detail": page_detail},
+                    ],
+                    "warnings": ["Do not use this application link until the employer's career page confirms the role."],
+                    "apply_url": None,
+                }
+
         checks = [
             {"name": "Live employer listing", "status": "pass", "detail": f"The exact job ID, title, and application URL were confirmed in {provider.title()}'s live public feed for {expected_company}."},
             {"name": "Application destination", "status": "pass", "detail": f"The link uses HTTPS on the expected {allowed_host} employer board or curated company careers domain."},
         ]
         warnings = []
+        if provider == "ashby":
+            checks.append({"name": "Ashby application page", "status": "pass", "detail": page_detail})
         if official_domain:
             domain_status, domain_detail = await _check_company_domain(client, official_domain)
             checks.append({"name": "Company website", "status": domain_status, "detail": domain_detail})
