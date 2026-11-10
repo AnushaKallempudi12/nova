@@ -146,3 +146,14 @@
 .status.ready-for-review{background:#edf2ff;color:#4c68c7}
 .status.awaiting-submission{background:#fff0e5;color:#b46b34}
 .status.submitted{background:#e8f7ee;color:#32976a}
+
+
+/* AI cover letter studio */
+.cover-research-toggle{display:flex;align-items:flex-start;gap:9px;margin:10px 0 15px;color:var(--muted);font-size:11px;line-height:1.5}
+.cover-research-toggle input{margin-top:2px;accent-color:var(--blue)}
+.cover-letter-meta{display:grid;gap:9px;margin:10px 0 14px;color:var(--muted);font-size:10px}
+.cover-letter-meta>span{display:inline-flex;align-items:center;gap:6px}
+.cover-research-sources{display:grid;gap:8px;padding:12px;background:#f5f7fb;border:1px solid var(--line);border-radius:9px}
+.cover-research-sources>b{color:var(--ink);font-size:10px}
+.cover-research-sources a{display:grid;grid-template-columns:1fr auto;gap:3px 7px;color:var(--blue);font-size:10px;text-decoration:none}
+.cover-research-sources a small{grid-column:1/-1;color:var(--muted);font-size:9px;line-height:1.5}
