@@ -189,3 +189,17 @@
 .country-switch{display:flex;gap:6px;margin:10px 0 14px}.country-switch button{border:1px solid #dce5f0;border-radius:9px;padding:8px 14px;background:#fff;color:#53647b;font-size:12px;font-weight:700;cursor:pointer}.country-switch button.active{background:#edf3ff;border-color:#7897d4;color:#1e3a68}.platform-choice>a{flex-shrink:0;padding:7px 9px;border-left:1px solid #e2e8f0}.platform-choice label{overflow:hidden}.platform-choice label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 .source-section-title{margin:16px 0 9px;color:#263852;font-size:13px;font-weight:750}.source-section-title:first-child{margin-top:4px}.platform-choice>a{font-size:11px;white-space:nowrap;color:#315db5;text-decoration:none;padding:6px 8px;border-left:1px solid #e2e8f0}.platform-choice>a:hover{text-decoration:underline}
+
+
+/* Source picker: text-first cards with wrapping content and non-overlapping links */
+.platform-inline-options{grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:10px}
+.platform-choice{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;min-width:0;min-height:76px;padding:12px 14px;border:1px solid #e2e8f0;border-radius:11px;background:#fff}
+.platform-choice.chosen{border-color:#7897d4;background:#f5f8ff}
+.platform-choice label{display:grid;grid-template-columns:18px minmax(0,1fr);align-items:start;gap:10px;min-width:0;padding:0;overflow:visible}
+.platform-choice label>input{margin:3px 0 0;flex:0 0 auto}
+.platform-choice .source-copy{display:grid;gap:4px;min-width:0;overflow-wrap:anywhere}
+.platform-choice .source-option-name{display:block;min-width:0;white-space:normal;overflow-wrap:anywhere;text-overflow:clip;overflow:visible;color:#263852;font-size:14px;font-weight:700;line-height:1.35}
+.platform-choice label small{display:block;min-width:0;white-space:normal;overflow-wrap:anywhere;color:#718096;font-size:12px;line-height:1.45}
+.platform-choice>a{flex:0 0 auto;align-self:center;padding:7px 0 7px 10px;border:0;border-left:1px solid #e2e8f0;color:#315db5;font-size:12px;font-weight:650;white-space:nowrap;text-decoration:none}
+.platform-choice>a:hover{text-decoration:underline}
+@media(max-width:560px){.platform-inline-options{grid-template-columns:1fr}.platform-choice{min-height:0;padding:12px}.platform-choice .source-option-name{font-size:14px}.platform-choice label small{font-size:12px}}
