@@ -130,7 +130,7 @@ def get_config():
     "live_job_search_enabled":True,"job_verification_enabled":True,"guided_application_enabled":True,
     "application_preparation_enabled":False,"application_submission_enabled":False,"provider_integrations_configured":n>0,"configured_public_boards":n,
     "configured_career_sites":len(COMPANY_CAREER_SITES),
-    "company_site_search_api_configured":bool(os.getenv("GOOGLE_CSE_API_KEY") and os.getenv("GOOGLE_CSE_CX")),
+    "company_site_search_api_configured":bool(os.getenv("TAVILY_API_KEY")),"tavily_fallback_configured":bool(os.getenv("TAVILY_API_KEY")),
     "message":"Nova searches selected public ATS feeds and registered employer career pages first. Tavily is used only as a fallback when direct results are limited; application submission remains user-controlled."}
 @app.get("/api/v1/applications")
 def list_applications(workspace_id:str):
