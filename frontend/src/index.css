@@ -141,3 +141,8 @@
 .draft-fields label{text-transform:capitalize}
 .draft-actions{flex-wrap:wrap;justify-content:flex-end}
 @media(max-width:560px){.draft-actions{display:grid;grid-template-columns:1fr}.draft-actions button{width:100%}}
+
+.status.in-progress{background:#fff5df;color:#a77a2d}
+.status.ready-for-review{background:#edf2ff;color:#4c68c7}
+.status.awaiting-submission{background:#fff0e5;color:#b46b34}
+.status.submitted{background:#e8f7ee;color:#32976a}
