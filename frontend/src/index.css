@@ -21,3 +21,24 @@
 @media(max-width:1050px){.platform-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:780px){.platform-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.resume-actions{align-items:stretch}.resume-actions button{flex:1}.platform-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.platform-card{padding:10px}.platform-card h3{font-size:10px}.platform-card>p{min-height:36px}.platform-next{align-items:flex-start;flex-direction:column}.platform-next .primary{width:100%}}
+
+/* Unified Find Jobs guided workflow */
+.find-workflow{max-width:1120px}
+.workflow-intro{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:22px 24px;background:linear-gradient(110deg,#edf2ff,#f8faff);border:1px solid #e0e7fb;border-radius:13px;margin-bottom:16px}
+.workflow-intro small,.step-heading small{font-size:8px;letter-spacing:1.2px;font-weight:700;color:#7186c9}
+.workflow-intro h2{font:800 20px Manrope;color:#263852;margin:7px 0}
+.workflow-intro p,.step-heading p{font-size:9px;line-height:1.65;color:#7f8ba0;margin:0}
+.workflow-progress{display:grid;gap:5px;min-width:180px;padding:12px 14px;background:#fff;border:1px solid #e4e9f3;border-radius:9px}
+.workflow-progress b{font:700 11px Manrope;color:#425b9b}
+.workflow-progress span{font-size:8px;color:#8995a7}
+.workflow-step{scroll-margin-top:18px;background:#fff;border:1px solid var(--line);border-radius:13px;padding:19px;margin:14px 0}
+.step-heading{display:flex;align-items:center;gap:12px;margin-bottom:15px}
+.step-heading h3{font:700 15px Manrope;color:#2b3c55;margin:4px 0}
+.step-number{width:34px;height:34px;flex-shrink:0;display:grid;place-items:center;border-radius:10px;background:#edf2ff;color:#526fd2;font:800 12px Manrope}
+.workflow-step .dropzone{min-height:150px}
+.workflow-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid #eef1f6}
+.workflow-actions>span{font-size:9px;color:#8490a2}
+.workflow-step .platform-grid{margin-top:0}
+.workflow-step .panel{border:0;padding:0}
+.workflow-step .panel .section-head{margin-bottom:8px}
+@media(max-width:600px){.workflow-intro{align-items:flex-start;flex-direction:column;padding:17px}.workflow-progress{width:100%}.workflow-step{padding:13px}.workflow-actions{align-items:stretch;flex-direction:column}.workflow-actions .primary{width:100%}}
