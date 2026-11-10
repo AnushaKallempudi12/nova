@@ -35,6 +35,11 @@ COMPANY_CAREER_SITES = {
     "Cognizant": {"domain": "cognizant.com", "url": "https://careers.cognizant.com/india-en/"},
     "Capgemini": {"domain": "capgemini.com", "url": "https://www.capgemini.com/in-en/careers/"},
     "Deloitte": {"domain": "deloitte.com", "url": "https://www.deloitte.com/in/en/careers.html"},
+    "Flipkart": {"domain": "flipkartcareers.com", "url": "https://www.flipkartcareers.com/jobslist"},
+    "PhonePe": {"domain": "phonepe.com", "url": "https://www.phonepe.com/careers/job-openings/"},
+    "Swiggy": {"domain": "swiggy.in", "url": "https://careers.swiggy.in/explore-jobs"},
+    "Razorpay": {"domain": "razorpay.com", "url": "https://razorpay.com/jobs/"},
+    "Zoho": {"domain": "zoho.com", "url": "https://www.zoho.com/careers/"},
 }
 # Optional JSON object: {"Company":{"domain":"company.com","url":"https://careers.company.com"}}
 try:
