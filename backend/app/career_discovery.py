@@ -241,7 +241,7 @@ async def _tavily_search(client: httpx.AsyncClient, query: str, location: str,
                   f"{hashlib.sha1(url.encode()).hexdigest()[:12]}",
             "title": title[:300], "company": employer, "location": location,
             "description": snippet[:1200], "url": url,
-            "source": "Company Career Site", "updated_at": None,
+            "source": f"{registered} Careers" if registered else next((label for suffix, label in (("greenhouse.io", "Greenhouse"), ("lever.co", "Lever"), ("ashbyhq.com", "Ashby"), ("smartrecruiters.com", "SmartRecruiters"), ("myworkdayjobs.com", "Workday"), ("icims.com", "iCIMS"), ("oraclecloud.com", "Oracle Recruiting"), ("workable.com", "Workable")) if host == suffix or host.endswith("." + suffix)), host), "updated_at": None,
             "discovery_method": "Tavily Search", "allowed_host": host,
         })
     return jobs, {"provider": "Tavily Career Search", "status": "ok",
