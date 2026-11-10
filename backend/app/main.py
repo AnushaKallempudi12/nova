@@ -56,8 +56,8 @@ class JobSearchRequest(BaseModel):
     query:str=Field(default="",max_length=300)
     location:str=Field(default="United States",max_length=120)
     limit:int=Field(default=50,ge=1,le=100)
-    selected_platforms:list[str]=Field(default_factory=lambda:["greenhouse","lever","ashby","smartrecruiters","career"],max_length=20)
-    selected_company_sources:list[str]=Field(default_factory=list,max_length=30)
+    selected_platforms:list[str]=Field(default_factory=lambda:["greenhouse","lever","ashby","smartrecruiters","career"],max_length=50)
+    selected_company_sources:list[str]=Field(default_factory=list,max_length=50)
     use_tavily_fallback:bool=False
     skills:list[str]=Field(default_factory=list,max_length=100)
     company:str=Field(default="",max_length=200)
@@ -98,6 +98,16 @@ PLATFORMS=[
 {"id":"flexjobs","name":"FlexJobs","search":"Official external search","application":"Manual"},
 {"id":"weworkremotely","name":"We Work Remotely","search":"Official external search","application":"Manual"},
 {"id":"naukri","name":"Naukri","search":"Official external search","application":"Manual"},
+{"id":"instahyre","name":"Instahyre","search":"Official external search","application":"Manual"},
+{"id":"cutshort","name":"Cutshort","search":"Official external search","application":"Manual"},
+{"id":"hirist","name":"Hirist","search":"Official external search","application":"Manual"},
+{"id":"iimjobs","name":"IIMJobs","search":"Official external search","application":"Manual"},
+{"id":"shine","name":"Shine","search":"Official external search","application":"Manual"},
+{"id":"timesjobs","name":"TimesJobs","search":"Official external search","application":"Manual"},
+{"id":"freshersworld","name":"Freshersworld","search":"Official external search","application":"Manual"},
+{"id":"apna","name":"Apna","search":"Official external search","application":"Manual"},
+{"id":"internshala","name":"Internshala","search":"Official external search","application":"Manual"},
+{"id":"ncs","name":"National Career Service","search":"Official external search","application":"Manual"},
 {"id":"foundit","name":"Foundit","search":"Official external search","application":"Manual"},
 {"id":"instahyre","name":"Instahyre","search":"Official external search","application":"Manual"},
 {"id":"cutshort","name":"Cutshort","search":"Official external search","application":"Manual"},
