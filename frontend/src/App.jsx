@@ -26,6 +26,7 @@ const PLATFORMS=[
 {id:"wellfound",name:"Wellfound",detail:"Startup and growth-company opportunities",search:"Official site search",apply:"Manual",url:"https://wellfound.com/jobs"},
 {id:"ziprecruiter",name:"ZipRecruiter",detail:"Job matching and recruiter listings",search:"Official site search",apply:"Manual",url:"https://www.ziprecruiter.com/"}
 ];
+const LIVE_SOURCE_IDS=["greenhouse","lever","ashby","smartrecruiters","career"];
 const NAV=[["find","Find Jobs",Search],["profile","Career Profile",FileText],["cover","Cover Letter Studio",Sparkles],["dashboard","Dashboard",Gauge],["more","More Tools",SlidersHorizontal]];
 const read=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}};
 const today=()=>new Date().toISOString().slice(0,10);
@@ -35,7 +36,7 @@ function WorkspaceApp({session}){
 const [page,setPage]=useState("dashboard"),[mobile,setMobile]=useState(false),[tool,setTool]=useState("preferences"),[accountMenu,setAccountMenu]=useState(false);
 const [workspace]=useState(()=>{let v=localStorage.getItem("nova-workspace-id");if(!v){v=crypto.randomUUID();localStorage.setItem("nova-workspace-id",v)}return v});
 const [api,setApi]=useState("checking"),[boardCount,setBoardCount]=useState(0),[apps,setApps]=useState([]);
-const [selected,setSelected]=useState(()=>{const saved=read("nova-platforms",null);return Array.isArray(saved)?(saved.includes("career")?[...new Set([...saved,"smartrecruiters"])]:saved):PLATFORMS.map(p=>p.id)});
+const [selected,setSelected]=useState(()=>{const saved=read("nova-platforms",null);return Array.isArray(saved)?[...new Set(saved.filter(id=>LIVE_SOURCE_IDS.includes(id)).concat(saved.includes("career")?["smartrecruiters"]:[]))]:LIVE_SOURCE_IDS});
 const [prefs,setPrefs]=useState(()=>read("nova-preferences",{roles:"Software Engineer, Java Developer, Backend Engineer",location:"",work:["Remote","Hybrid","On-site"],experience:"Early career / 1–3 years",minMatch:70,maxPerDay:10}));
 const [resume,setResume]=useState(()=>read("nova-resume",null)),[resumeBusy,setResumeBusy]=useState(false),[resumeError,setResumeError]=useState("");
 const [role,setRole]=useState("Software Engineer"),[companyQuery,setCompanyQuery]=useState(""),[location,setLocation]=useState(()=>read("nova-preferences",{location:""}).location||"United States"),[jobs,setJobs]=useState([]),[searching,setSearching]=useState(false),[searchMsg,setSearchMsg]=useState("");
@@ -46,7 +47,7 @@ const [coverLetters,setCoverLetters]=useState([]),[coverRole,setCoverRole]=useSt
 const notify=m=>{setToast(m);window.setTimeout(()=>setToast(""),3200)};
 const reqHeaders={"Content-Type":"application/json","Authorization":`Bearer ${session.access_token}`};
 const loadApps=async()=>{try{const r=await fetch(API+"/api/v2/applications",{headers:reqHeaders});if(!r.ok)throw Error();const d=await r.json();setApps(d.applications||[])}catch{setApi("offline")}};
-useEffect(()=>{let live=true;Promise.all([fetch(API+"/health"),fetch(API+"/api/v1/config")]).then(async rs=>{if(!rs[0].ok||!rs[1].ok)throw Error();const cfg=await rs[1].json();if(live){setApi("online");setBoardCount(cfg.configured_public_boards||0)}}).catch(()=>live&&setApi("offline"));loadApps();fetch(API+"/api/v2/me",{headers:reqHeaders}).then(r=>r.json()).then(d=>{if(live){if(d.resume)setResume(d.resume);setProfileData(v=>({...v,...(d.profile||{})}));if(d.profile?.preferences)setPrefs(d.profile.preferences);if(Array.isArray(d.profile?.selected_platforms))setSelected(d.profile.selected_platforms);setProfileLoaded(true)}}).catch(()=>setProfileLoaded(true));fetch(API+"/api/v2/cover-letters",{headers:reqHeaders}).then(r=>r.json()).then(d=>setCoverLetters(d.cover_letters||[])).catch(()=>{});return()=>{live=false}},[]);
+useEffect(()=>{let live=true;Promise.all([fetch(API+"/health"),fetch(API+"/api/v1/config")]).then(async rs=>{if(!rs[0].ok||!rs[1].ok)throw Error();const cfg=await rs[1].json();if(live){setApi("online");setBoardCount(cfg.configured_public_boards||0)}}).catch(()=>live&&setApi("offline"));loadApps();fetch(API+"/api/v2/me",{headers:reqHeaders}).then(r=>r.json()).then(d=>{if(live){if(d.resume)setResume(d.resume);setProfileData(v=>({...v,...(d.profile||{})}));if(d.profile?.preferences)setPrefs(d.profile.preferences);if(Array.isArray(d.profile?.selected_platforms)){const live=d.profile.selected_platforms.filter(id=>LIVE_SOURCE_IDS.includes(id));setSelected(live.length?live:LIVE_SOURCE_IDS)}setProfileLoaded(true)}}).catch(()=>setProfileLoaded(true));fetch(API+"/api/v2/cover-letters",{headers:reqHeaders}).then(r=>r.json()).then(d=>setCoverLetters(d.cover_letters||[])).catch(()=>{});return()=>{live=false}},[]);
 useEffect(()=>localStorage.setItem("nova-platforms",JSON.stringify(selected)),[selected]);
 useEffect(()=>localStorage.setItem("nova-preferences",JSON.stringify(prefs)),[prefs]);
 useEffect(()=>localStorage.setItem("nova-resume",JSON.stringify(resume)),[resume]);
