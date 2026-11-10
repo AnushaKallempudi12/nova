@@ -11,7 +11,7 @@ Nova is a private job-search workspace with authenticated accounts, saved resume
 - Expanded job-source catalog: LinkedIn, Indeed, Dice, Wellfound, Built In, ZipRecruiter, Glassdoor, Monster, Handshake, USAJOBS, FlexJobs, We Work Remotely, and employer ATS career pages.
 - Live public employer-board search across Greenhouse, Lever, Ashby and optional SmartRecruiters company boards.
 - Universal employer career-site discovery across a starter registry including Google, Apple, Amazon, Microsoft, Walmart, Meta, NVIDIA, Adobe, Salesforce and IBM. Public schema.org JobPosting data is extracted when the employer page exposes it.
-- Optional Google Programmable Search integration searches the wider web for role-specific employer career listings, filters known job aggregators, and checks that results point to employer career paths or recognized ATS hosts. Searching for a named company also supports employers outside the starter registry. This requires a Google Custom Search API key and Search Engine ID configured for web-wide search.
+- Optional Tavily Search integration discovers role-specific listings on employer career sites and recognized ATS hosts. Searching for a named company also supports employers outside the starter registry. Configure `TAVILY_API_KEY` on the backend; without it, Nova continues using direct ATS feeds and public JobPosting structured data.
 - Additional official career sites can be registered with `NOVA_CAREER_SITES`; this avoids pretending every company exposes a common public API.
 - Editable cover-letter drafts generated from saved resume details and job-description keywords. Drafts are saved to the user's account. The generator is template-based and does not claim to use a hosted AI model.
 - Authenticated application tracker and dashboard.
@@ -39,7 +39,7 @@ Set these variables in Railway:
 - `DATABASE_URL` (Supabase PostgreSQL connection string)
 - `NOVA_ALLOWED_ORIGINS` (Nova frontend URL)
 - Optional: `GREENHOUSE_BOARD_TOKENS`, `LEVER_SITE_NAMES`, `ASHBY_BOARD_NAMES`, `SMARTRECRUITERS_COMPANIES`
-- Optional broader career-site discovery: `GOOGLE_CSE_API_KEY`, `GOOGLE_CSE_CX`
+- Optional broader career-site discovery: `TAVILY_API_KEY`
 - Optional custom employer registry: `NOVA_CAREER_SITES` (JSON object of company names to official domain and HTTPS career-page URL)
 
 **Frontend service — build-time variables**
@@ -63,7 +63,7 @@ The original uploaded resume file is not retained. Only extracted text, filename
 - `LEVER_SITE_NAMES`: comma-separated public Lever site identifiers.
 - `ASHBY_BOARD_NAMES`: comma-separated public Ashby board identifiers.
 - `SMARTRECRUITERS_COMPANIES`: comma-separated public SmartRecruiters company identifiers.
-- `GOOGLE_CSE_API_KEY` and `GOOGLE_CSE_CX`: enable broader role-specific career-site search across the web, including companies outside the starter registry. Configure a Google Programmable Search Engine for web-wide search and an API key before setting these values.
+- `TAVILY_API_KEY`: enables broader role-specific discovery across public employer career pages and recognized ATS hosts, including companies outside the starter registry.
 - `NOVA_CAREER_SITES`: optional JSON object, for example `{"Example Corp":{"domain":"example.com","url":"https://careers.example.com"}}`. Only HTTPS URLs are accepted. Nova reads public structured job data; pages that render listings only in client-side scripts may not expose jobs to this fallback.
 
 LinkedIn, Indeed, Glassdoor, ZipRecruiter, Dice, Wellfound and other external portals remain official external destinations unless a permitted direct integration is configured. The career-site crawler only reads public pages and structured job data; it does not log in, bypass CAPTCHAs, or defeat access controls. Coverage varies by employer website.
@@ -85,11 +85,11 @@ Configure the environment variables above before testing authenticated flows.
 
 ## AI cover letter generation
 
-Nova's Cover Letter Studio uses the candidate's saved resume text, saved experience summary, and the full job description to create an editable 250–350-word letter. It prioritizes concrete, verified experience and avoids inventing qualifications, achievements, metrics, or company initiatives. When Google Programmable Search is configured, Nova can add a small set of attributable company research snippets and displays the source links beside the draft. If reliable company information is not found, the generator does not fabricate it.
+Nova's Cover Letter Studio uses the candidate's saved resume text, saved experience summary, and the full job description to create an editable letter with a minimum of 250 words and no maximum. It prioritizes concrete, verified experience and avoids inventing qualifications, achievements, metrics, or company initiatives. When Tavily search is configured, Nova can add a small set of attributable company research snippets and displays the source links beside the draft. If reliable company information is not found, the generator does not fabricate it.
 
-The backend supports Google Gemini and OpenAI. Configure `GEMINI_API_KEY` in the Railway backend to use Gemini; it is selected by default when present. The optional provider selector is `NOVA_AI_PROVIDER=gemini` (or `openai` / `auto`), and the Gemini model override is `NOVA_GEMINI_MODEL` (default `gemini-2.5-flash`). OpenAI remains optional through `NOVA_OPENAI_API_KEY` (or `OPENAI_API_KEY`) and `NOVA_COVER_LETTER_MODEL` (default `gpt-4.1-mini`). Optional company research uses the existing `GOOGLE_CSE_API_KEY` and `GOOGLE_CSE_CX` settings. Never commit real API keys to the repository.
+The backend supports Google Gemini and OpenAI. Configure `GEMINI_API_KEY` in the Railway backend to use Gemini; it is selected by default when present. The optional provider selector is `NOVA_AI_PROVIDER=gemini` (or `openai` / `auto`), and the Gemini model override is `NOVA_GEMINI_MODEL` (default `gemini-2.5-flash`). OpenAI remains optional through `NOVA_OPENAI_API_KEY` (or `OPENAI_API_KEY`) and `NOVA_COVER_LETTER_MODEL` (default `gpt-4.1-mini`). Optional company research uses `TAVILY_API_KEY`. Never commit real API keys to the repository.
 
-Before generation, the user must explicitly consent in Cover Letter Studio to sending their saved resume text, profile summary, and job description to the configured AI provider. Only company name and target role are sent to Google Programmable Search for company research. Generated drafts are saved to the user's account and remain editable; the user must verify the facts and approve the final letter before submitting it.
+Before generation, the user must explicitly consent in Cover Letter Studio to sending their saved resume text, profile summary, and job description to the configured AI provider. Only company name and target role are sent to Tavily Search for company research. Generated drafts are saved to the user's account and remain editable; the user must verify the facts and approve the final letter before submitting it.
 
  
 ## Company career-site search configuration
