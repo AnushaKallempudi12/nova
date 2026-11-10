@@ -261,7 +261,7 @@ async def search_public_company_boards(
     selected_company_names = [company_name_by_id[key] for key in company_source_ids if key in company_name_by_id]
     external = [platform_names[key] for key in sorted(selected) if key in platform_names and not key.startswith("company-")]
     configured = sum(len(boards) for enabled, boards in provider_selection.values() if enabled)
-    direct_sites_enabled = bool({"career", "all"} & selected) or bool(selected_company_names)
+    direct_sites_enabled = bool({"career", "all"} & selected) or bool(selected_company_names) or use_tavily_fallback
     live_ats_enabled = any(enabled for enabled, _ in provider_selection.values())
     if not direct_sites_enabled and not live_ats_enabled:
         return {
