@@ -61,10 +61,11 @@ class JobSearchRequest(BaseModel):
     company:str=Field(default="",max_length=200)
     @field_validator("location")
     @classmethod
-    def us_only(cls,v):
-        if v.strip().lower() in {"united states","usa","us"}: return "United States"
-        if not _is_us_location(v): raise ValueError("Enter United States or a US city and state, such as Dallas, TX.")
-        return v.strip()
+    def normalize_location(cls,v):
+        cleaned=v.strip()
+        if cleaned.lower() in {"united states","usa","us"}: return "United States"
+        if not cleaned: raise ValueError("Enter a country or location, such as United States, India, or Dallas, TX.")
+        return cleaned
 class JobVerificationRequest(BaseModel):
     job_id:str=Field(min_length=1,max_length=300)
     url:str=Field(min_length=8,max_length=2000)
