@@ -141,6 +141,8 @@ def create_app(payload:ApplicationInput,user=Depends(current_user)):
 
 @router.put("/applications/{app_id}")
 def update_app(app_id:int,payload:ApplicationInput,user=Depends(current_user)):
+    if payload.status not in {"Saved","Applied","Pending","Responded","Interview","Rejected","Offer","Withdrawn"}:
+        raise HTTPException(status_code=422,detail="Unsupported application status.")
     with SessionLocal() as db:
         r=db.query(UserApplication).filter_by(id=app_id,user_id=user["id"]).first()
         if not r: raise HTTPException(status_code=404,detail="Application not found.")
@@ -181,7 +183,7 @@ def generate_letter(payload:CoverLetterInput,user=Depends(current_user)):
             opening=(f"I am applying for the {payload.role} position"
                      +(f" at {payload.company}" if payload.company.strip() else "")
                      +". My professional background and project experience are described in the resume I have included.")
-        summary=re.sub(r"\\s+"," ",str(p.get("experience_summary",""))).strip()
+        summary=re.sub(r"\s+"," ",str(p.get("experience_summary",""))).strip()
         if summary:
             experience=("My experience includes "+summary.rstrip(".")+"." )
         else:
@@ -195,7 +197,7 @@ def generate_letter(payload:CoverLetterInput,user=Depends(current_user)):
         header=[name]
         if location: header.append(location)
         if contact_line: header.append(contact_line)
-        content="\\n".join(header)+"\\n\\nDear Hiring Manager,\\n\\n"+opening+"\\n\\n"+experience+"\\n\\n"+alignment+"\\n\\n"+closing+"\\n\\nSincerely,\\n"+name
+        content="\n".join(header)+"\n\nDear Hiring Manager,\n\n"+opening+"\n\n"+experience+"\n\n"+alignment+"\n\n"+closing+"\n\nSincerely,\n"+name
         row=SavedCoverLetter(user_id=user["id"],title=f"{payload.role} — {payload.company.strip() or 'Cover Letter'}",
                              company=payload.company.strip(),role=payload.role,content=content)
         db.add(row);db.commit();db.refresh(row)
