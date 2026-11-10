@@ -19,11 +19,11 @@ const PLATFORMS=[
 {id:"linkedin",name:"LinkedIn",detail:"Professional roles, recruiters and networking",search:"Official site search",apply:"Manual",url:"https://www.linkedin.com/jobs/"},
 {id:"monster",name:"Monster",detail:"Broad professional job listings",search:"Official site search",apply:"Manual",url:"https://www.monster.com/"},
 {id:"career",name:"Other company career pages",detail:"Employer-owned career sites and ATS portals",search:"Manual employer-site discovery",apply:"Manual",url:""},
-{id:"other",name:"Other supported portals",detail:"Manual employer-site discovery",search:"External search",apply:"Manual",url:""}
+{id:"other",name:"Other supported portals",detail:"Manual employer-site discovery",search:"External search",apply:"Manual",url:""},
 {id:"usajobs",name:"USAJOBS",detail:"US federal government opportunities",search:"Official site search",apply:"Manual",url:"https://www.usajobs.gov/"},
 {id:"weworkremotely",name:"We Work Remotely",detail:"Remote-first professional opportunities",search:"Official site search",apply:"Manual",url:"https://weworkremotely.com/"},
 {id:"wellfound",name:"Wellfound",detail:"Startup and growth-company opportunities",search:"Official site search",apply:"Manual",url:"https://wellfound.com/jobs"},
-{id:"ziprecruiter",name:"ZipRecruiter",detail:"Job matching and recruiter listings",search:"Official site search",apply:"Manual",url:"https://www.ziprecruiter.com/"},
+{id:"ziprecruiter",name:"ZipRecruiter",detail:"Job matching and recruiter listings",search:"Official site search",apply:"Manual",url:"https://www.ziprecruiter.com/"}
 ];
 const NAV=[["find","Find Jobs",Search],["profile","Career Profile",FileText],["cover","Cover Letter Studio",Sparkles],["dashboard","Dashboard",Gauge],["more","More Tools",SlidersHorizontal]];
 const read=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}};
