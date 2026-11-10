@@ -294,7 +294,7 @@ async def search_company_career_sites(client: httpx.AsyncClient, query: str, loc
                 return [], {"provider": "Company Career Site", "company": company,
                             "status": "error", "count": 0, "message": str(exc)[:160]}
 
-    company_key = re.sub(r"\\b(inc|incorporated|corp|corporation|llc|ltd|limited)\\b", "", company.lower()).strip()
+    company_key = re.sub(r"\b(inc|incorporated|corp|corporation|llc|ltd|limited)\b", "", company.lower()).strip()
     inspection_sites = [(name, site) for name, site in COMPANY_CAREER_SITES.items()
                         if not company_key or company_key in name.lower() or name.lower() in company_key]
     inspections = await asyncio.gather(*[
@@ -333,12 +333,15 @@ async def search_smartrecruiters(client: httpx.AsyncClient, query: str, location
                     parsed = urlparse(job_url)
                     if parsed.scheme != "https" or not parsed.hostname:
                         continue
+                    job_ad = item.get("jobAd") or {}
+                    sections = job_ad.get("sections") or {}
+                    description = (sections.get("jobDescription") or {}).get("text", "")
                     job = {
                         "id": f"smartrecruiters:{company_id}:{item.get('id')}",
                         "title": _text(item.get("name") or item.get("title")),
                         "company": _text((payload.get("company") or {}).get("name")) or company_id,
                         "location": loc_text,
-                        "description": _text(item.get("jobAd", {}).get("sections", {}).get("jobDescription", {}).get("text", ""))[:1600],
+                        "description": _text(description)[:1600],
                         "url": job_url,
                         "source": "SmartRecruiters",
                         "updated_at": item.get("releasedDate"),
