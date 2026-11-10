@@ -142,27 +142,50 @@ def _matches(job: dict[str, Any], query: str, location: str) -> bool:
     wanted = (location or "").strip().lower()
     actual = str(job.get("location", "")).lower()
     if wanted in {"united states", "usa", "us"}:
-        return not actual or any(x in actual for x in (
-            "united states", "usa", " u.s.", "remote", "california", "texas",
-            "new york", "washington", "arkansas", "colorado", "massachusetts",
-        ))
+        if not actual:
+            return True
+        us_markers = (
+            "united states", "united states of america", "usa", "u.s.", "remote",
+            "alabama", "alaska", "arizona", "arkansas", "california", "colorado",
+            "connecticut", "delaware", "florida", "georgia", "hawaii", "idaho",
+            "illinois", "indiana", "iowa", "kansas", "kentucky", "louisiana",
+            "maine", "maryland", "massachusetts", "michigan", "minnesota",
+            "mississippi", "missouri", "montana", "nebraska", "nevada",
+            "new hampshire", "new jersey", "new mexico", "new york",
+            "north carolina", "north dakota", "ohio", "oklahoma", "oregon",
+            "pennsylvania", "rhode island", "south carolina", "south dakota",
+            "tennessee", "texas", "utah", "vermont", "virginia", "washington",
+            "west virginia", "wisconsin", "wyoming", "district of columbia",
+        )
+        if any(marker in actual for marker in us_markers):
+            return True
+        state_codes = {
+            "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN",
+            "IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV",
+            "NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN",
+            "TX","UT","VT","VA","WA","WV","WI","WY","DC",
+        }
+        return any(part.strip().upper() in state_codes for part in actual.split(",")[1:])
     return not wanted or not actual or wanted in actual
 
 
 async def _google_cse(client: httpx.AsyncClient, query: str, location: str,
-                     limit: int) -> tuple[list[dict], dict]:
+                     limit: int, company_filter: str = "") -> tuple[list[dict], dict]:
     api_key = os.getenv("GOOGLE_CSE_API_KEY", "").strip()
     cx = os.getenv("GOOGLE_CSE_CX", "").strip()
     if not api_key or not cx:
         return [], {"provider": "Company Career Site Search", "status": "not_configured",
-                    "count": 0, "message": "Set GOOGLE_CSE_API_KEY and GOOGLE_CSE_CX to enable broader employer-site search."}
+                    "count": 0, "message": "Set GOOGLE_CSE_API_KEY and GOOGLE_CSE_CX to enable broad employer-site search."}
 
-    domain_query = " OR ".join(f"site:{site['domain']}" for site in COMPANY_CAREER_SITES.values())
+    if company_filter.strip():
+        search_query = f'"{company_filter.strip()}" {query} jobs careers {location}'
+    else:
+        domain_query = " OR ".join(f"site:{site['domain']}" for site in COMPANY_CAREER_SITES.values())
+        search_query = f"({domain_query}) {query} jobs careers {location}"
     try:
         response = await client.get(
             "https://www.googleapis.com/customsearch/v1",
-            params={"key": api_key, "cx": cx,
-                    "q": f"({domain_query}) {query} jobs careers {location}",
+            params={"key": api_key, "cx": cx, "q": search_query,
                     "num": min(10, max(1, limit))},
         )
         response.raise_for_status()
@@ -171,40 +194,65 @@ async def _google_cse(client: httpx.AsyncClient, query: str, location: str,
         return [], {"provider": "Company Career Site Search", "status": "error",
                     "count": 0, "message": str(exc)[:160]}
 
+    ats_hosts = (
+        "boards.greenhouse.io", "job-boards.greenhouse.io", "jobs.lever.co",
+        "jobs.ashbyhq.com", "jobs.smartrecruiters.com", "careers.smartrecruiters.com",
+        "myworkdayjobs.com", "icims.com", "oraclecloud.com", "workable.com",
+        "recruitee.com", "teamtailor.com", "bamboohr.com",
+    )
+    excluded_hosts = {
+        "linkedin.com", "indeed.com", "glassdoor.com", "ziprecruiter.com",
+        "monster.com", "dice.com", "wellfound.com", "careerbuilder.com",
+    }
+    company_token = re.sub(r"[^a-z0-9]", "", company_filter.lower())
     jobs = []
     for item in payload.get("items", []):
         url = str(item.get("link") or "")
         parsed = urlparse(url)
-        if parsed.scheme != "https" or not parsed.hostname:
+        host = (parsed.hostname or "").lower()
+        if parsed.scheme != "https" or not host:
             continue
-        company = next((name for name, site in COMPANY_CAREER_SITES.items()
-                        if _host_matches(parsed.hostname or "", site["domain"])), None)
-        if not company:
+        if any(_host_matches(host, blocked) for blocked in excluded_hosts):
             continue
+        registered_company = next((name for name, site in COMPANY_CAREER_SITES.items()
+                                   if _host_matches(host, site["domain"])), None)
+        is_known_ats = any(_host_matches(host, ats_host) for ats_host in ats_hosts)
+        if company_filter.strip():
+            host_token = re.sub(r"[^a-z0-9]", "", host)
+            company_matches_host = bool(company_token and company_token in host_token)
+            if not registered_company and not is_known_ats and not company_matches_host:
+                continue
+            company = registered_company or company_filter.strip()
+        else:
+            if not registered_company:
+                continue
+            company = registered_company
+
         title = _text(item.get("title"))
-        job = {"title": title, "description": _text(item.get("snippet")),
-               "company": company, "location": location}
+        snippet = _text(item.get("snippet"))
+        job = {"title": title, "description": snippet, "company": company, "location": location}
         if not title or not _matches(job, query, ""):
             continue
         jobs.append({
-            "id": f"cse:{company.lower().replace(' ', '-')}:"
+            "id": f"cse:{re.sub(r'[^a-z0-9]+', '-', company.lower()).strip('-')}:"
                   f"{hashlib.sha1(url.encode()).hexdigest()[:12]}",
             "title": title[:300], "company": company, "location": location,
-            "description": _text(item.get("snippet"))[:1200], "url": url,
+            "description": snippet[:1200], "url": url,
             "source": "Company Career Site", "updated_at": None,
             "discovery_method": "Google Programmable Search",
-            "allowed_host": COMPANY_CAREER_SITES[company]["domain"],
+            "allowed_host": host,
         })
     return jobs, {"provider": "Company Career Site Search", "status": "ok",
-                  "count": len(jobs), "results_returned": len(payload.get("items", []))}
+                  "count": len(jobs), "results_returned": len(payload.get("items", [])),
+                  "company_filter": company_filter or None}
 
 
 async def search_company_career_sites(client: httpx.AsyncClient, query: str, location: str,
-                                      limit: int = 50) -> tuple[list[dict], list[dict]]:
+                                      limit: int = 50, company: str = "") -> tuple[list[dict], list[dict]]:
     """Search registered official employer sites via CSE and parse public JSON-LD."""
     jobs: list[dict] = []
     statuses: list[dict] = []
-    cse_jobs, cse_status = await _google_cse(client, query, location, limit)
+    cse_jobs, cse_status = await _google_cse(client, query, location, limit, company)
     jobs.extend(cse_jobs)
     statuses.append(cse_status)
 
@@ -228,8 +276,10 @@ async def search_company_career_sites(client: httpx.AsyncClient, query: str, loc
                 return [], {"provider": "Company Career Site", "company": company,
                             "status": "error", "count": 0, "message": str(exc)[:160]}
 
+    inspection_sites = [(name, site) for name, site in COMPANY_CAREER_SITES.items()
+                        if not company.strip() or company.strip().lower() in name.lower()]
     inspections = await asyncio.gather(*[
-        inspect(name, site) for name, site in COMPANY_CAREER_SITES.items()
+        inspect(name, site) for name, site in inspection_sites
     ])
     for rows, status in inspections:
         jobs.extend(rows)
