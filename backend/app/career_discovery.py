@@ -181,7 +181,7 @@ async def _tavily_search(client: httpx.AsyncClient, query: str, location: str,
                     "count": 0, "message": "Add TAVILY_API_KEY to enable broader employer and ATS job discovery."}
 
     role_query = f'"{company_filter.strip()}" {query} jobs careers {location}' if company_filter.strip() else f'{query} jobs careers {location}'
-    search_query = role_query + " site:boards.greenhouse.io OR site:jobs.lever.co OR site:jobs.ashbyhq.com OR site:jobs.smartrecruiters.com OR site:myworkdayjobs.com OR site:icims.com OR site:careers."
+    search_query = role_query + " official employer career site job posting application ATS listing"
     try:
         response = await client.post(
             "https://api.tavily.com/search",
