@@ -406,13 +406,78 @@ def _research_company(company: str, role: str) -> list[dict]:
     return sources
 
 
+def _call_cover_letter_model(system_prompt:str,user_prompt:str,*,temperature:float,max_tokens:int) -> tuple[str,str]:
+    """Call the configured Gemini or OpenAI provider using the same grounded prompts."""
+    preferred=os.getenv("NOVA_AI_PROVIDER","").strip().lower()
+    gemini_key=os.getenv("GEMINI_API_KEY","").strip()
+    openai_key=(os.getenv("NOVA_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
+
+    if preferred not in {"","auto","gemini","openai"}:
+        raise HTTPException(status_code=503,detail="NOVA_AI_PROVIDER must be set to gemini, openai, or auto.")
+    if preferred=="gemini" or (preferred in {"","auto"} and gemini_key):
+        provider="gemini"
+    elif preferred=="openai" or openai_key:
+        provider="openai"
+    else:
+        raise HTTPException(status_code=503,detail="AI cover letters are not configured. Add GEMINI_API_KEY to the Nova backend Railway service, or configure an OpenAI API key.")
+
+    try:
+        if provider=="gemini":
+            if not gemini_key:
+                raise HTTPException(status_code=503,detail="NOVA_AI_PROVIDER is set to gemini, but GEMINI_API_KEY is missing from the Nova backend Railway service.")
+            model=os.getenv("NOVA_GEMINI_MODEL","gemini-2.5-flash").strip()
+            endpoint=f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+            response=httpx.post(
+                endpoint,
+                headers={"x-goog-api-key":gemini_key,"Content-Type":"application/json"},
+                json={
+                    "systemInstruction":{"parts":[{"text":system_prompt}]},
+                    "contents":[{"role":"user","parts":[{"text":user_prompt}]}],
+                    "generationConfig":{"temperature":temperature,"maxOutputTokens":max_tokens},
+                },
+                timeout=55.0,
+            )
+            response.raise_for_status()
+            data=response.json()
+            parts=data["candidates"][0]["content"]["parts"]
+            content="".join(part.get("text","") for part in parts if isinstance(part,dict)).strip()
+            provider_label=f"Google Gemini ({model})"
+        else:
+            if not openai_key:
+                raise HTTPException(status_code=503,detail="NOVA_AI_PROVIDER is set to openai, but no OpenAI API key is configured on the Nova backend.")
+            model=os.getenv("NOVA_COVER_LETTER_MODEL","gpt-4.1-mini").strip()
+            response=httpx.post(
+                os.getenv("NOVA_OPENAI_API_URL","https://api.openai.com/v1/chat/completions"),
+                headers={"Authorization":f"Bearer {openai_key}","Content-Type":"application/json"},
+                json={"model":model,"temperature":temperature,"max_tokens":max_tokens,
+                      "messages":[{"role":"system","content":system_prompt},{"role":"user","content":user_prompt}]},
+                timeout=55.0,
+            )
+            response.raise_for_status()
+            content=response.json()["choices"][0]["message"]["content"].strip()
+            provider_label=f"OpenAI ({model})"
+
+        if not content:
+            raise ValueError("The AI provider returned an empty draft.")
+        return content,provider_label
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504,detail="The AI cover letter service timed out. Please try again.")
+    except httpx.HTTPStatusError as exc:
+        status=exc.response.status_code
+        if status in {401,403}:
+            raise HTTPException(status_code=503,detail="Nova's configured AI provider rejected its API key. Check the backend Railway variable name and key.")
+        if status==429:
+            raise HTTPException(status_code=503,detail="The AI provider rate limit or billing quota was reached. Check the configured API account.")
+        raise HTTPException(status_code=502,detail=f"The AI cover letter provider returned an error (HTTP {status}).")
+    except HTTPException:
+        raise
+    except (KeyError,IndexError,TypeError,ValueError):
+        raise HTTPException(status_code=502,detail="Nova could not read a valid cover letter from the AI provider. Please try again.")
+
+
 def _generate_ai_cover_letter(*,name:str,contact_line:str,location:str,company:str,role:str,
                               resume_text:str,resume_skills:list[str],profile_summary:str,
                               job_description:str,research_sources:list[dict]) -> tuple[str,str]:
-    api_key=os.getenv("NOVA_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=503,detail="AI cover letter generation is not configured yet. Add NOVA_OPENAI_API_KEY (or OPENAI_API_KEY) to the Nova backend Railway service, then redeploy.")
-    model=os.getenv("NOVA_COVER_LETTER_MODEL","gpt-4.1-mini").strip()
     research_text="\n".join(
         f"- {source['title']} | {source['url']} | {source['snippet']}"
         for source in research_sources
@@ -453,52 +518,21 @@ OPTIONAL COMPANY RESEARCH (each item includes its source URL):
 {research_text}
 
 Write a role-specific cover letter. Choose the strongest two or three truthful connections between candidate experience and the actual job requirements. Use a concrete resume example where available and explain its relevance. If evidence is limited, focus on verified transferable experience without inventing details."""
-    try:
-        response=httpx.post(
-            os.getenv("NOVA_OPENAI_API_URL","https://api.openai.com/v1/chat/completions"),
-            headers={"Authorization":f"Bearer {api_key}","Content-Type":"application/json"},
-            json={"model":model,"temperature":0.45,"max_tokens":1100,
-                  "messages":[{"role":"system","content":system_prompt},{"role":"user","content":user_prompt}]},
-            timeout=55.0,
-        )
-        response.raise_for_status()
-        data=response.json()
-        content=data["choices"][0]["message"]["content"].strip()
-        if not content:
-            raise ValueError("The AI provider returned an empty draft.")
-        word_count=len(re.findall(r"\b[\w’'-]+\b",content))
-        if word_count<250 or word_count>350:
-            revise_prompt=("Revise the cover letter below to be between 250 and 350 words, excluding contact header and sign-off. "
-                           "Keep every factual claim grounded in the supplied candidate evidence. Return only the revised letter.\n\n"+content)
-            retry=httpx.post(
-                os.getenv("NOVA_OPENAI_API_URL","https://api.openai.com/v1/chat/completions"),
-                headers={"Authorization":f"Bearer {api_key}","Content-Type":"application/json"},
-                json={"model":model,"temperature":0.35,"max_tokens":1100,
-                      "messages":[{"role":"system","content":system_prompt},{"role":"user","content":revise_prompt}]},
-                timeout=55.0,
-            )
-            retry.raise_for_status()
-            revised=retry.json()["choices"][0]["message"]["content"].strip()
-            revised_count=len(re.findall(r"\b[\w’'-]+\b",revised))
-            if revised and 250<=revised_count<=350:
-                content=revised
-            else:
-                raise ValueError("The AI provider did not produce a draft within the requested 250–350 word range.")
-        header=[name]
-        if location: header.append(location)
-        if contact_line: header.append(contact_line)
-        return "\n".join(header)+"\n\n"+content+"\n\nSincerely,\n"+name,model
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=504,detail="The AI cover letter service timed out. Please try again.")
-    except httpx.HTTPStatusError as exc:
-        status=exc.response.status_code
-        if status==401:
-            raise HTTPException(status_code=503,detail="Nova's AI provider rejected its API key. Check the backend Railway environment variable.")
-        if status==429:
-            raise HTTPException(status_code=503,detail="The AI provider rate limit or billing quota was reached. Check the configured API account.")
-        raise HTTPException(status_code=502,detail=f"The AI cover letter provider returned an error (HTTP {status}).")
-    except (KeyError,TypeError,ValueError):
-        raise HTTPException(status_code=502,detail="Nova could not read a valid cover letter from the AI provider. Please try again.")
+    content,provider_label=_call_cover_letter_model(system_prompt,user_prompt,temperature=0.45,max_tokens=1600)
+    word_count=len(re.findall(r"\b[\w’'-]+\b",content))
+    if word_count<250 or word_count>350:
+        revise_prompt=("Revise the cover letter below to be between 250 and 350 words, excluding contact header and sign-off. "
+                       "Keep every factual claim grounded in the supplied candidate evidence. Return only the revised letter.\n\n"+content)
+        revised,_=_call_cover_letter_model(system_prompt,revise_prompt,temperature=0.35,max_tokens=1600)
+        revised_count=len(re.findall(r"\b[\w’'-]+\b",revised))
+        if revised and 250<=revised_count<=350:
+            content=revised
+        else:
+            raise HTTPException(status_code=502,detail="The AI provider did not produce a draft within the requested 250–350 word range. Please try again.")
+    header=[name]
+    if location: header.append(location)
+    if contact_line: header.append(contact_line)
+    return "\n".join(header)+"\n\n"+content+"\n\nSincerely,\n"+name,provider_label
 
 
 @router.post("/cover-letters/generate")
