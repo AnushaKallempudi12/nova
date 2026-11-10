@@ -1,5 +1,6 @@
 import os
 import re
+import time
 from datetime import date, datetime
 from typing import Optional
 import httpx
@@ -369,32 +370,32 @@ def _resume_experience_evidence(resume_text: str, job_terms: list[str]) -> list[
 
 
 def _research_company(company: str, role: str) -> list[dict]:
-    """Use Google Programmable Search only when configured; retain attributable sources."""
-    api_key=os.getenv("GOOGLE_CSE_API_KEY","").strip()
-    cx=os.getenv("GOOGLE_CSE_CX","").strip()
-    if not company or not api_key or not cx:
+    """Use Tavily only when configured; return attributable, company-relevant sources."""
+    api_key=os.getenv("TAVILY_API_KEY","").strip()
+    if not company or not api_key:
         return []
     try:
-        response=httpx.get(
-            "https://www.googleapis.com/customsearch/v1",
-            params={"key":api_key,"cx":cx,"q":f'"{company}" official company about products engineering careers {role}',"num":6},
-            timeout=8.0,
+        response=httpx.post(
+            "https://api.tavily.com/search",
+            json={"api_key":api_key,"query":f'"{company}" official company about products engineering careers {role}',
+                  "search_depth":"basic","max_results":8,"include_answer":False},
+            timeout=12.0,
         )
         response.raise_for_status()
-        items=response.json().get("items",[])
-    except (httpx.HTTPError,ValueError,KeyError):
+        items=response.json().get("results",[])
+    except (httpx.HTTPError,ValueError,KeyError,TypeError):
         return []
     company_terms=[x for x in re.findall(r"[a-z0-9]+",company.lower()) if len(x)>2]
-    excluded={"linkedin.com","indeed.com","glassdoor.com","wikipedia.org","crunchbase.com","facebook.com","instagram.com","youtube.com","x.com","google.com"}
+    excluded={"linkedin.com","indeed.com","glassdoor.com","wikipedia.org","crunchbase.com","facebook.com","instagram.com","youtube.com","x.com"}
     sources=[]
     for item in items:
-        link=str(item.get("link","")).strip()
+        link=str(item.get("url","")).strip()
         parsed=urlparse(link)
         domain=(parsed.hostname or "").lower().removeprefix("www.")
         if parsed.scheme!="https" or not domain or any(domain==x or domain.endswith("."+x) for x in excluded):
             continue
-        title=re.sub(r"\s+"," ",str(item.get("title",""))).strip()
-        snippet=re.sub(r"\s+"," ",str(item.get("snippet",""))).strip()
+        title=re.sub(r"\\s+"," ",str(item.get("title",""))).strip()
+        snippet=re.sub(r"\\s+"," ",str(item.get("content",""))).strip()
         domain_tokens=set(re.findall(r"[a-z0-9]+",domain))
         if company_terms and not (any(term in domain_tokens for term in company_terms) or company.lower() in title.lower()):
             continue
@@ -404,7 +405,6 @@ def _research_company(company: str, role: str) -> list[dict]:
         if len(sources)==3:
             break
     return sources
-
 
 def _call_cover_letter_model(system_prompt:str,user_prompt:str,*,temperature:float,max_tokens:int) -> tuple[str,str]:
     """Call the configured Gemini or OpenAI provider using the same grounded prompts."""
@@ -427,16 +427,25 @@ def _call_cover_letter_model(system_prompt:str,user_prompt:str,*,temperature:flo
                 raise HTTPException(status_code=503,detail="NOVA_AI_PROVIDER is set to gemini, but GEMINI_API_KEY is missing from the Nova backend Railway service.")
             model=os.getenv("NOVA_GEMINI_MODEL","gemini-3.5-flash").strip()
             endpoint=f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-            response=httpx.post(
-                endpoint,
+            response=None
+            for attempt in range(3):
+                try:
+                    response=httpx.post(
+                        endpoint,
                 headers={"x-goog-api-key":gemini_key,"Content-Type":"application/json"},
                 json={
                     "systemInstruction":{"parts":[{"text":system_prompt}]},
                     "contents":[{"role":"user","parts":[{"text":user_prompt}]}],
                     "generationConfig":{"temperature":temperature,"maxOutputTokens":max_tokens},
                 },
-                timeout=55.0,
-            )
+                        timeout=55.0,
+                    )
+                    if response.status_code not in {500,502,503,504} or attempt==2:
+                        break
+                except (httpx.TimeoutException,httpx.ConnectError):
+                    if attempt==2:
+                        raise
+                time.sleep(0.8*(attempt+1))
             response.raise_for_status()
             data=response.json()
             parts=data["candidates"][0]["content"]["parts"]
@@ -446,13 +455,22 @@ def _call_cover_letter_model(system_prompt:str,user_prompt:str,*,temperature:flo
             if not openai_key:
                 raise HTTPException(status_code=503,detail="NOVA_AI_PROVIDER is set to openai, but no OpenAI API key is configured on the Nova backend.")
             model=os.getenv("NOVA_COVER_LETTER_MODEL","gpt-4.1-mini").strip()
-            response=httpx.post(
-                os.getenv("NOVA_OPENAI_API_URL","https://api.openai.com/v1/chat/completions"),
+            response=None
+            for attempt in range(3):
+                try:
+                    response=httpx.post(
+                        os.getenv("NOVA_OPENAI_API_URL","https://api.openai.com/v1/chat/completions"),
                 headers={"Authorization":f"Bearer {openai_key}","Content-Type":"application/json"},
                 json={"model":model,"temperature":temperature,"max_tokens":max_tokens,
                       "messages":[{"role":"system","content":system_prompt},{"role":"user","content":user_prompt}]},
-                timeout=55.0,
-            )
+                        timeout=55.0,
+                    )
+                    if response.status_code not in {500,502,503,504} or attempt==2:
+                        break
+                except (httpx.TimeoutException,httpx.ConnectError):
+                    if attempt==2:
+                        raise
+                time.sleep(0.8*(attempt+1))
             response.raise_for_status()
             content=response.json()["choices"][0]["message"]["content"].strip()
             provider_label=f"OpenAI ({model})"
@@ -500,7 +518,7 @@ def _generate_ai_cover_letter(*,name:str,contact_line:str,location:str,company:s
         "If no reliable company research is supplied, focus on the role and employer without fabricated praise or initiatives. "
         "Avoid clichés such as 'I am thrilled', 'I am excited to apply', 'perfect fit', 'dynamic organization', and generic claims about passion. "
         "Sound natural, confident, grounded, and concise. Do not use markdown, bullet points, headings, placeholders, or citations in the letter body. "
-        "Write 250–350 words for the letter body (excluding the contact header and sign-off name). "
+        "Write at least 250 words for the letter body (excluding the contact header and sign-off name). There is no maximum word limit; aim for approximately 280–350 words when the evidence supports it. "
         "Return only the complete letter body beginning with an appropriate salutation and ending with a brief professional closing."
     )
     user_prompt=f"""Candidate name: {name}
@@ -527,15 +545,15 @@ OPTIONAL COMPANY RESEARCH (each item includes its source URL):
 Write a role-specific cover letter. Choose the strongest two or three truthful connections between candidate experience and the actual job requirements. Use a concrete resume example where available and explain its relevance. If evidence is limited, focus on verified transferable experience without inventing details."""
     content,provider_label=_call_cover_letter_model(system_prompt,user_prompt,temperature=0.45,max_tokens=1600)
     word_count=len(re.findall(r"\b[\w’'-]+\b",content))
-    if word_count<250 or word_count>350:
-        revise_prompt=("Revise the cover letter below to be between 250 and 350 words, excluding contact header and sign-off. "
+    if word_count<250:
+        revise_prompt=("Expand the cover letter below to at least 250 words (excluding contact header and sign-off). There is no maximum word limit. Aim for 280–350 words while preserving factual accuracy. "
                        "Keep every factual claim grounded in the supplied candidate evidence. Return only the revised letter.\n\n"+content)
         revised,_=_call_cover_letter_model(system_prompt,revise_prompt,temperature=0.35,max_tokens=1600)
         revised_count=len(re.findall(r"\b[\w’'-]+\b",revised))
-        if revised and 250<=revised_count<=350:
+        if revised and revised_count>=250:
             content=revised
         else:
-            raise HTTPException(status_code=502,detail="The AI provider did not produce a draft within the requested 250–350 word range. Please try again.")
+            raise HTTPException(status_code=502,detail="The AI provider returned a draft shorter than the 250-word minimum after revision. Please try again.")
     header=[name]
     if location: header.append(location)
     if contact_line: header.append(contact_line)
