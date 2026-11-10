@@ -6,6 +6,7 @@ domain registry. It does not crawl login-only pages or bypass site controls.
 """
 import asyncio
 import html
+import hashlib
 import json
 import os
 import re
@@ -106,6 +107,9 @@ def normalize_jsonld_jobs(document: str, company: str, source_url: str) -> list[
             continue
         for item in _job_postings(payload):
             url = item.get("url") or source_url
+            if str(url).startswith("/"):
+                from urllib.parse import urljoin
+                url = urljoin(source_url, str(url))
             parsed = urlparse(str(url))
             if parsed.scheme != "https" or not parsed.hostname:
                 continue
@@ -116,7 +120,7 @@ def normalize_jsonld_jobs(document: str, company: str, source_url: str) -> list[
             employer_name = _text(employer.get("name")) if isinstance(employer, dict) else ""
             results.append({
                 "id": f"career:{company.lower().replace(' ', '-')}:"
-                      f"{abs(hash(str(url))) & 0xffffffff:x}",
+                      hashlib.sha1(str(url).encode()).hexdigest()[:12],
                 "title": title[:300],
                 "company": employer_name or company,
                 "location": _location(item),
@@ -152,50 +156,48 @@ async def _google_cse(client: httpx.AsyncClient, query: str, location: str,
     cx = os.getenv("GOOGLE_CSE_CX", "").strip()
     if not api_key or not cx:
         return [], {"provider": "Company Career Site Search", "status": "not_configured",
-                    "count": 0, "message": "Set GOOGLE_CSE_API_KEY and GOOGLE_CSE_CX to enable broad employer-site search."}
-    domain_queries = []
-    for name, site in COMPANY_CAREER_SITES.items():
-        domain_queries.append(f"site:{site['domain']} {query} jobs careers")
-    # Query the registered employer domains in small batches to stay within CSE limits.
+                    "count": 0, "message": "Set GOOGLE_CSE_API_KEY and GOOGLE_CSE_CX to enable broader employer-site search."}
+
+    domain_query = " OR ".join(f"site:{site['domain']}" for site in COMPANY_CAREER_SITES.values())
+    try:
+        response = await client.get(
+            "https://www.googleapis.com/customsearch/v1",
+            params={"key": api_key, "cx": cx,
+                    "q": f"({domain_query}) {query} jobs careers {location}",
+                    "num": min(10, max(1, limit))},
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        return [], {"provider": "Company Career Site Search", "status": "error",
+                    "count": 0, "message": str(exc)[:160]}
+
     jobs = []
-    statuses = []
-    for name, site_query in zip(COMPANY_CAREER_SITES, domain_queries):
-        try:
-            response = await client.get(
-                "https://www.googleapis.com/customsearch/v1",
-                params={"key": api_key, "cx": cx, "q": f"{site_query} {location}",
-                        "num": min(10, max(1, limit))},
-            )
-            response.raise_for_status()
-            payload = response.json()
-            company = name
-            for item in payload.get("items", []):
-                url = str(item.get("link") or "")
-                parsed = urlparse(url)
-                if parsed.scheme != "https" or not _host_matches(parsed.hostname or "", site["domain"]):
-                    continue
-                title = _text(item.get("title"))
-                if not title or not _matches({"title": title, "description": item.get("snippet", ""),
-                                               "company": company, "location": location}, query, ""):
-                    continue
-                jobs.append({
-                    "id": f"cse:{name.lower().replace(' ', '-')}:"
-                          f"{abs(hash(url)) & 0xffffffff:x}",
-                    "title": title[:300], "company": company, "location": location,
-                    "description": _text(item.get("snippet"))[:1200], "url": url,
-                    "source": "Company Career Site", "updated_at": None,
-                    "discovery_method": "Google Programmable Search",
-                    "allowed_host": site["domain"],
-                })
-            statuses.append({"provider": "Company Career Site Search", "company": company,
-                             "status": "ok", "count": len(payload.get("items", []))})
-        except (httpx.HTTPError, ValueError) as exc:
-            statuses.append({"provider": "Company Career Site Search", "company": name,
-                             "status": "error", "count": 0, "message": str(exc)[:160]})
-    return [job for job in jobs if _matches(job, query, location)][:limit], {
-        "provider": "Company Career Site Search", "status": "ok", "count": len(jobs),
-        "companies_checked": statuses,
-    }
+    for item in payload.get("items", []):
+        url = str(item.get("link") or "")
+        parsed = urlparse(url)
+        if parsed.scheme != "https" or not parsed.hostname:
+            continue
+        company = next((name for name, site in COMPANY_CAREER_SITES.items()
+                        if _host_matches(parsed.hostname or "", site["domain"])), None)
+        if not company:
+            continue
+        title = _text(item.get("title"))
+        job = {"title": title, "description": _text(item.get("snippet")),
+               "company": company, "location": location}
+        if not title or not _matches(job, query, ""):
+            continue
+        jobs.append({
+            "id": f"cse:{company.lower().replace(' ', '-')}:"
+                  f"{hashlib.sha1(url.encode()).hexdigest()[:12]}",
+            "title": title[:300], "company": company, "location": location,
+            "description": _text(item.get("snippet"))[:1200], "url": url,
+            "source": "Company Career Site", "updated_at": None,
+            "discovery_method": "Google Programmable Search",
+            "allowed_host": COMPANY_CAREER_SITES[company]["domain"],
+        })
+    return jobs, {"provider": "Company Career Site Search", "status": "ok",
+                  "count": len(jobs), "results_returned": len(payload.get("items", []))}
 
 
 async def search_company_career_sites(client: httpx.AsyncClient, query: str, location: str,
