@@ -104,8 +104,10 @@ def _matches(job: dict[str, Any], query: str, location: str) -> bool:
     actual_location = str(job.get("location", ""))
     if wanted_location in {"united states", "usa", "us"}:
         return _is_us_location(actual_location) or "remote" in actual_location.lower()
-    if wanted_location and wanted_location not in actual_location.lower():
-        return False
+    if wanted_location:
+        wanted_parts = [part.strip() for part in wanted_location.split(",") if part.strip()]
+        if not all(part in actual_location.lower() for part in wanted_parts):
+            return False
     return True
 
 async def _greenhouse(client: httpx.AsyncClient, board: str, query: str, location: str) -> tuple[list[dict], dict]:
