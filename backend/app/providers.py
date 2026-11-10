@@ -7,6 +7,13 @@ from urllib.parse import urlparse
 
 import httpx
 
+from .career_discovery import (
+    configured_smartrecruiters_companies,
+    enrich_job_matches,
+    search_company_career_sites,
+    search_smartrecruiters,
+)
+
 TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
 # Starter employers selected for broad software engineering opportunities.
 # Board identifiers were publicly verified on Greenhouse; availability is rechecked live per search.
@@ -147,48 +154,6 @@ async def _lever(client: httpx.AsyncClient, site: str, query: str, location: str
     return jobs, {"provider": "Lever", "site": site, "status": "ok", "count": len(jobs)}
 
 
-async def search_public_company_boards(query: str, location: str, limit: int = 50) -> dict:
-    jobs: list[dict] = []
-    statuses: list[dict] = []
-    configured = len(GREENHOUSE_BOARDS) + len(LEVER_SITES)
-    if not configured:
-        return {
-            "jobs": [],
-            "sources_checked": [],
-            "configured_sources": 0,
-            "message": "No company career boards are configured yet. Add Greenhouse board tokens and/or Lever site names to the backend environment."
-        }
-
-    timeout = httpx.Timeout(12.0, connect=5.0)
-    semaphore = asyncio.Semaphore(5)
-
-    async with httpx.AsyncClient(timeout=timeout, headers={"Accept": "application/json", "User-Agent": "NovaCareerSearch/0.1"}) as client:
-        async def safe_call(provider: str, identifier: str):
-            async with semaphore:
-                try:
-                    if provider == "Greenhouse":
-                        return await _greenhouse(client, identifier, query, location)
-                    return await _lever(client, identifier, query, location)
-                except (httpx.HTTPError, ValueError, KeyError) as exc:
-                    return [], {"provider": provider, "board": identifier, "status": "error", "message": str(exc)[:180]}
-
-        tasks = [safe_call("Greenhouse", token) for token in GREENHOUSE_BOARDS]
-        tasks += [safe_call("Lever", site) for site in LEVER_SITES]
-        results = await asyncio.gather(*tasks)
-
-    for source_jobs, status in results:
-        jobs.extend(source_jobs)
-        statuses.append(status)
-
-    jobs.sort(key=lambda item: item.get("updated_at") or "", reverse=True)
-    return {
-        "jobs": jobs[:max(1, min(limit, 100))],
-        "sources_checked": statuses,
-        "configured_sources": configured,
-        "message": f"Found {len(jobs)} matching published roles across configured public career boards."
-    }
-
-
 # Ashby public job-board API. Configure public board identifiers in ASHBY_BOARD_NAMES.
 # Ashby board slugs are case-sensitive in hosted URLs and API paths.
 ASHBY_BOARDS=list(dict.fromkeys([v.lower() for v in ["ramp","vanta","linear","watershed","replit","modal","baseten","browserbase","notion","perplexity","cohere","zip","sierra","decagon","cursor"]]+[v.strip().lower() for v in os.getenv("ASHBY_BOARD_NAMES","").split(",") if v.strip() and TOKEN_PATTERN.fullmatch(v.strip())]))[:40]
@@ -230,67 +195,124 @@ async def _confirm_job_page(client: httpx.AsyncClient, job: dict) -> bool:
         return False
 
 
-async def search_public_company_boards(query:str,location:str,limit:int=50,selected_platforms:list[str]|None=None)->dict:
-    platform_names={
-        "linkedin":"LinkedIn","indeed":"Indeed","dice":"Dice","wellfound":"Wellfound",
-        "builtin":"Built In","ziprecruiter":"ZipRecruiter","glassdoor":"Glassdoor",
-        "monster":"Monster","handshake":"Handshake","usajobs":"USAJOBS",
-        "flexjobs":"FlexJobs","weworkremotely":"We Work Remotely","career":"Other company career pages",
-        "other":"Other supported portals"
+async def search_public_company_boards(
+    query: str,
+    location: str,
+    limit: int = 50,
+    selected_platforms: list[str] | None = None,
+    user_skills: list[str] | None = None,
+) -> dict:
+    """Search all selected live feeds plus registered official career sites."""
+    platform_names = {
+        "linkedin": "LinkedIn", "indeed": "Indeed", "dice": "Dice",
+        "wellfound": "Wellfound", "builtin": "Built In",
+        "ziprecruiter": "ZipRecruiter", "glassdoor": "Glassdoor",
+        "monster": "Monster", "handshake": "Handshake", "usajobs": "USAJOBS",
+        "flexjobs": "FlexJobs", "weworkremotely": "We Work Remotely",
+        "career": "Company career websites", "other": "Other supported portals",
     }
-    selected=set(selected_platforms if selected_platforms is not None else ["greenhouse","lever","ashby"])
-    provider_selection={
-        "Greenhouse":("greenhouse" in selected,GREENHOUSE_BOARDS),
-        "Lever":("lever" in selected,LEVER_SITES),
-        "Ashby":("ashby" in selected,ASHBY_BOARDS),
+    selected = set(selected_platforms if selected_platforms is not None else
+                   ["greenhouse", "lever", "ashby", "smartrecruiters", "career"])
+    provider_selection = {
+        "Greenhouse": ("greenhouse" in selected, GREENHOUSE_BOARDS),
+        "Lever": ("lever" in selected, LEVER_SITES),
+        "Ashby": ("ashby" in selected, ASHBY_BOARDS),
+        "SmartRecruiters": ("smartrecruiters" in selected, configured_smartrecruiters_companies()),
     }
-    external=[platform_names[x] for x in sorted(selected) if x in platform_names]
-    configured=sum(len(boards) for enabled,boards in provider_selection.values() if enabled)
-    if not any(enabled for enabled,_ in provider_selection.values()):
-        return {"jobs":[],"sources_checked":[],"configured_sources":0,"external_platforms":external,
-                "message":"No live ATS sources selected. Select Greenhouse, Lever or Ashby to search connected employer boards."}
-    timeout=httpx.Timeout(12.0,connect=5.0)
-    semaphore=asyncio.Semaphore(6)
-    async with httpx.AsyncClient(timeout=timeout,headers={"Accept":"application/json","User-Agent":"NovaCareerSearch/0.3"}) as client:
-        async def call(provider,identifier):
+    external = [platform_names[key] for key in sorted(selected) if key in platform_names]
+    configured = sum(len(boards) for enabled, boards in provider_selection.values() if enabled)
+    direct_sites_enabled = bool({"career", "all"} & selected)
+    live_ats_enabled = any(enabled for enabled, _ in provider_selection.values())
+    if not direct_sites_enabled and not live_ats_enabled:
+        return {
+            "jobs": [], "sources_checked": [], "configured_sources": 0,
+            "external_platforms": external,
+            "message": "Select All company websites or at least one connected ATS source to search live jobs.",
+        }
+
+    timeout = httpx.Timeout(14.0, connect=5.0)
+    semaphore = asyncio.Semaphore(6)
+    jobs: list[dict] = []
+    statuses: list[dict] = []
+    async with httpx.AsyncClient(
+        timeout=timeout,
+        headers={"Accept": "application/json,text/html,*/*",
+                 "User-Agent": "Mozilla/5.0 NovaCareerSearch/1.0"},
+    ) as client:
+        async def call(provider: str, identifier: str):
             async with semaphore:
                 try:
-                    if provider=="Greenhouse": return await _greenhouse(client,identifier,query,location)
-                    if provider=="Lever": return await _lever(client,identifier,query,location)
-                    return await _ashby(client,identifier,query,location)
-                except (httpx.HTTPError,ValueError,KeyError) as exc:
-                    return [],{"provider":provider,"board":identifier,"status":"error","message":str(exc)[:180]}
-        tasks=[]
-        statuses=[]
-        for provider,(enabled,boards) in provider_selection.items():
-            if not enabled: continue
-            if not boards:
-                statuses.append({"provider":provider,"status":"not_configured","count":0,"message":"No board identifiers configured for this provider."})
-            else:
-                tasks.extend(call(provider,board) for board in boards)
-        results=await asyncio.gather(*tasks) if tasks else []
-    jobs=[]
-    for rows,status in results:
-        jobs.extend(rows)
-        statuses.append(status)
-    jobs.sort(key=lambda x:x.get("updated_at") or "",reverse=True)
+                    if provider == "Greenhouse":
+                        return await _greenhouse(client, identifier, query, location)
+                    if provider == "Lever":
+                        return await _lever(client, identifier, query, location)
+                    if provider == "Ashby":
+                        return await _ashby(client, identifier, query, location)
+                    return await search_smartrecruiters(client, query, location, [identifier], limit)
 
-    # A job in an ATS feed can still point to a removed/expired hosted page.
-    # Check the actual page before exposing it in Find Jobs. A timeout, blocked
-    # response, non-ATS redirect, 404 or 410 is excluded rather than presented
-    # as an actionable listing.
+        tasks = []
+        for provider, (enabled, boards) in provider_selection.items():
+            if not enabled:
+                continue
+            if not boards:
+                statuses.append({
+                    "provider": provider, "status": "not_configured", "count": 0,
+                    "message": f"No {provider} company identifiers configured.",
+                })
+            else:
+                tasks.extend(call(provider, board) for board in boards)
+
+        if direct_sites_enabled:
+            career_jobs, career_statuses = await search_company_career_sites(
+                client, query, location, limit=max(1, min(limit, 100))
+            )
+            jobs.extend(career_jobs)
+            statuses.extend(career_statuses)
+
+        results = await asyncio.gather(*tasks) if tasks else []
+        for rows, status in results:
+            jobs.extend(rows)
+            statuses.append(status)
+
+    # Normalize duplicates across multiple sources using the canonical URL first,
+    # then company/title/location as a fallback.
+    unique: dict[str, dict] = {}
+    for job in jobs:
+        url = (job.get("url") or "").split("?")[0].rstrip("/").lower()
+        fallback = "|".join(str(job.get(key, "")).strip().lower()
+                            for key in ("company", "title", "location"))
+        key = url or fallback
+        if key not in unique:
+            unique[key] = job
+    jobs = list(unique.values())
+    jobs.sort(key=lambda item: str(item.get("updated_at") or ""), reverse=True)
+
+    # Verify real destination pages. The first batch is checked before filtering;
+    # over-fetching is intentionally bounded to avoid hammering employer sites.
+    candidates = jobs[:max(1, min(limit * 2, 150))]
     availability_timeout = httpx.Timeout(8.0, connect=4.0)
     async with httpx.AsyncClient(
         timeout=availability_timeout,
-        headers={"Accept":"text/html,application/xhtml+xml","User-Agent":"Mozilla/5.0 NovaJobAvailability/1.0"},
+        headers={"Accept": "text/html,application/xhtml+xml",
+                 "User-Agent": "Mozilla/5.0 NovaJobAvailability/1.0"},
         follow_redirects=True,
     ) as page_client:
         checks = await asyncio.gather(*[
-            _confirm_job_page(page_client, job) for job in jobs[:max(1,min(limit,100))]
+            _confirm_job_page(page_client, job) for job in candidates
         ])
-    checked_jobs = [job for job, available in zip(jobs, checks) if available]
-    excluded = len(checks) - len(checked_jobs)
-    return {"jobs":checked_jobs,"sources_checked":statuses,
-            "configured_sources":configured,"external_platforms":external,
-            "availability_checked":len(checks),"unavailable_or_unconfirmed":excluded,
-            "message":f"Showing {len(checked_jobs)} jobs with reachable employer application pages. Excluded {excluded} unavailable or unconfirmed links."}
+    checked_jobs = [job for job, available in zip(candidates, checks) if available]
+    checked_jobs = enrich_job_matches(checked_jobs, user_skills or [])[:max(1, min(limit, 100))]
+    excluded = len(checks) - sum(1 for value in checks if value)
+    return {
+        "jobs": checked_jobs,
+        "sources_checked": statuses,
+        "configured_sources": configured,
+        "external_platforms": external,
+        "availability_checked": len(checks),
+        "unavailable_or_unconfirmed": excluded,
+        "message": (
+            f"Found {len(jobs)} unique listings across selected sources. "
+            f"Showing {len(checked_jobs)} with reachable official application pages; "
+            f"excluded {excluded} unavailable or unconfirmed links."
+        ),
+    }
