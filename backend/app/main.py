@@ -36,7 +36,7 @@ class Application(Base):
     notes:Mapped[str]=mapped_column(Text,default="")
     created_at:Mapped[datetime]=mapped_column(server_default=func.now())
 Base.metadata.create_all(bind=engine)
-STATUSES={"Saved","Applied","Pending","Responded","Interview","Rejected","Offer","Withdrawn"}
+STATUSES={"Saved","In Progress","Ready for Review","Awaiting Submission","Submitted","Applied","Pending","Responded","Interview","Rejected","Offer","Withdrawn"}
 class ApplicationInput(BaseModel):
     company:str=Field(min_length=1,max_length=200)
     role:str=Field(min_length=1,max_length=300)
