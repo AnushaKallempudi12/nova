@@ -186,7 +186,7 @@ async def _tavily_search(client: httpx.AsyncClient, query: str, location: str,
         response = await client.post(
             "https://api.tavily.com/search",
             json={"api_key": api_key, "query": search_query, "search_depth": "basic",
-                  "max_results": min(20, max(5, limit)), "include_answer": False},
+                  "max_results": min(5, max(3, limit)), "include_answer": False},
         )
         response.raise_for_status()
         payload = response.json()
@@ -240,32 +240,27 @@ async def _tavily_search(client: httpx.AsyncClient, query: str, location: str,
                   "company_filter": company_filter or None}
 
 async def search_company_career_sites(client: httpx.AsyncClient, query: str, location: str,
-                                      limit: int = 50, company: str = "") -> tuple[list[dict], list[dict]]:
-    """Search registered official employer sites via Tavily and parse public JSON-LD."""
+                                      limit: int = 50, company: str = "",
+                                      use_tavily: bool = True) -> tuple[list[dict], list[dict]]:
+    """Inspect registered employer pages first; use Tavily only as a low-volume fallback."""
     jobs: list[dict] = []
     statuses: list[dict] = []
-    search_jobs, search_status = await _tavily_search(client, query, location, limit, company)
-    jobs.extend(search_jobs)
-    statuses.append(search_status)
-
-    # Directly inspect each registered careers landing page for public JobPosting JSON-LD.
-    # This is a best-effort fallback; many large employers render jobs client-side.
     semaphore = asyncio.Semaphore(5)
 
-    async def inspect(company: str, site: dict[str, str]):
+    async def inspect(company_name: str, site: dict[str, str]):
         async with semaphore:
             try:
                 response = await client.get(site["url"], follow_redirects=True)
                 final_host = urlparse(str(response.url)).hostname or ""
                 if response.status_code >= 400 or not _host_matches(final_host, site["domain"]):
-                    return [], {"provider": "Company Career Site", "company": company,
+                    return [], {"provider": "Company Career Site", "company": company_name,
                                 "status": "unavailable", "count": 0}
-                parsed = normalize_jsonld_jobs(response.text, company, str(response.url))
+                parsed = normalize_jsonld_jobs(response.text, company_name, str(response.url))
                 matched = [job for job in parsed if _matches(job, query, location)]
-                return matched, {"provider": "Company Career Site", "company": company,
+                return matched, {"provider": "Company Career Site", "company": company_name,
                                  "status": "ok", "count": len(matched)}
             except (httpx.HTTPError, ValueError) as exc:
-                return [], {"provider": "Company Career Site", "company": company,
+                return [], {"provider": "Company Career Site", "company": company_name,
                             "status": "error", "count": 0, "message": str(exc)[:160]}
 
     company_key = re.sub(r"\b(inc|incorporated|corp|corporation|llc|ltd|limited)\b", "", company.lower()).strip()
@@ -277,8 +272,15 @@ async def search_company_career_sites(client: httpx.AsyncClient, query: str, loc
     for rows, status in inspections:
         jobs.extend(rows)
         statuses.append(status)
-    return jobs[:limit], statuses
 
+    # Tavily is a paid external search. Only call it when direct ATS + registered
+    # employer-page discovery did not already produce a useful result set.
+    fallback_threshold = min(5, max(1, limit))
+    if use_tavily and len(jobs) < fallback_threshold:
+        search_jobs, search_status = await _tavily_search(client, query, location, min(limit, 5), company)
+        jobs.extend(search_jobs)
+        statuses.append(search_status)
+    return jobs[:limit], statuses
 
 async def search_smartrecruiters(client: httpx.AsyncClient, query: str, location: str,
                                  companies: list[str], limit: int = 50) -> tuple[list[dict], list[dict]]:
