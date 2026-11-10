@@ -125,7 +125,8 @@ def normalize_jsonld_jobs(document: str, company: str, source_url: str) -> list[
                 "source": "Company Career Site",
                 "updated_at": item.get("datePosted"),
                 "employment_type": item.get("employmentType"),
-                "discovery_method": "schema.org JobPosting",\n                "allowed_host": (urlparse(str(url)).hostname or "").lower(),
+                "discovery_method": "schema.org JobPosting",
+                "allowed_host": (urlparse(str(url)).hostname or "").lower(),
             })
     return results
 
@@ -183,7 +184,8 @@ async def _google_cse(client: httpx.AsyncClient, query: str, location: str,
                     "title": title[:300], "company": company, "location": location,
                     "description": _text(item.get("snippet"))[:1200], "url": url,
                     "source": "Company Career Site", "updated_at": None,
-                    "discovery_method": "Google Programmable Search",\n                    "allowed_host": site["domain"],
+                    "discovery_method": "Google Programmable Search",
+                    "allowed_host": site["domain"],
                 })
             statuses.append({"provider": "Company Career Site Search", "company": company,
                              "status": "ok", "count": len(payload.get("items", []))})
@@ -269,7 +271,8 @@ async def search_smartrecruiters(client: httpx.AsyncClient, query: str, location
                         "description": _text(item.get("jobAd", {}).get("sections", {}).get("jobDescription", {}).get("text", ""))[:1600],
                         "url": job_url,
                         "source": "SmartRecruiters",
-                        "updated_at": item.get("releasedDate"),\n                        "allowed_host": (parsed.hostname or "").lower(),
+                        "updated_at": item.get("releasedDate"),
+                        "allowed_host": (parsed.hostname or "").lower(),
                     }
                     if job["title"] and _matches(job, query, location):
                         rows.append(job)
