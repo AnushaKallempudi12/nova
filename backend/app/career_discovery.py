@@ -180,8 +180,7 @@ async def _google_cse(client: httpx.AsyncClient, query: str, location: str,
     if company_filter.strip():
         search_query = f'"{company_filter.strip()}" {query} jobs careers {location}'
     else:
-        domain_query = " OR ".join(f"site:{site['domain']}" for site in COMPANY_CAREER_SITES.values())
-        search_query = f"({domain_query}) {query} jobs careers {location}"
+        search_query = f"{query} jobs careers {location} -site:linkedin.com -site:indeed.com -site:glassdoor.com -site:ziprecruiter.com -site:monster.com -site:dice.com -site:wellfound.com -site:careerbuilder.com"
     try:
         response = await client.get(
             "https://www.googleapis.com/customsearch/v1",
@@ -202,7 +201,9 @@ async def _google_cse(client: httpx.AsyncClient, query: str, location: str,
     )
     excluded_hosts = {
         "linkedin.com", "indeed.com", "glassdoor.com", "ziprecruiter.com",
-        "monster.com", "dice.com", "wellfound.com", "careerbuilder.com",
+        "monster.com", "dice.com", "wellfound.com", "careerbuilder.com", "simplyhired.com",
+        "jooble.org", "talent.com", "adzuna.com", "jobcase.com", "lensa.com",
+        "builtin.com", "flexjobs.com", "weworkremotely.com",
     }
     company_token = re.sub(r"[^a-z0-9]", "", company_filter.lower())
     jobs = []
@@ -224,9 +225,24 @@ async def _google_cse(client: httpx.AsyncClient, query: str, location: str,
                 continue
             company = registered_company or company_filter.strip()
         else:
-            if not registered_company:
+            career_path = any(part in parsed.path.lower() for part in ("job", "career", "employment", "vacancy"))
+            career_host = host.startswith("careers.") or host.startswith("jobs.")
+            if not registered_company and not is_known_ats and not career_path and not career_host:
                 continue
-            company = registered_company
+            if registered_company:
+                company = registered_company
+            else:
+                meta = (item.get("pagemap") or {}).get("metatags") or []
+                meta = meta[0] if meta and isinstance(meta[0], dict) else {}
+                company = (meta.get("og:site_name") or meta.get("application-name")
+                           or meta.get("og:title") or "")
+                if not company:
+                    if any(_host_matches(host, ats) for ats in ats_hosts):
+                        company = parsed.path.strip("/").split("/")[0].replace("-", " ").title()
+                    elif host.endswith(".myworkdayjobs.com"):
+                        company = host.split(".")[0].replace("-", " ").title()
+                    else:
+                        company = host.split(":")[0].split(".")[0].replace("-", " ").title()
 
         title = _text(item.get("title"))
         snippet = _text(item.get("snippet"))
