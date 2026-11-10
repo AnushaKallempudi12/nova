@@ -94,10 +94,9 @@ Before generation, the user must explicitly consent in Cover Letter Studio to se
  
 ## Company career-site search configuration
 
-Live ATS feeds (Greenhouse, Lever, Ashby and configured SmartRecruiters boards) do not require Google search credentials. Broader discovery of jobs hosted on employer career websites requires Google Programmable Search Engine credentials because many career pages render job listings dynamically rather than exposing public JobPosting JSON-LD on their landing page.
+Live ATS feeds (Greenhouse, Lever, Ashby and configured SmartRecruiters boards) do not require search credentials. Broader discovery of public employer career pages and recognized ATS listings uses Tavily.
 
-Add both variables to the **Nova backend** Railway service:
-- `GOOGLE_CSE_API_KEY` — Google Programmable Search API key.
-- `GOOGLE_CSE_CX` — Programmable Search Engine ID configured to search the web or the desired employer domains.
+Add this variable to the **Nova backend** Railway service:
+- `TAVILY_API_KEY` — Tavily Search API key.
 
-Without both variables, Nova can still inspect registered career landing pages for structured JobPosting data, but results may be limited or empty. The UI now reports this limitation rather than implying that every employer career site has a live feed.
+Without this optional key, Nova still searches configured live ATS feeds and inspects registered employer career pages for public schema.org JobPosting data. The UI reports the missing optional search capability instead of implying every employer has a direct feed.
