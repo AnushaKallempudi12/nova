@@ -215,7 +215,7 @@ def prepare_application(payload:ApplicationPrepareInput,user=Depends(current_use
     with SessionLocal() as db:
         profile=db.get(UserProfile,user["id"])
         resume=db.get(UserResume,user["id"])
-        p=profile.data if profile else {}
+        p=profile.data if profile and isinstance(profile.data,dict) else {}
         first_name=str(p.get("first_name") or "").strip()
         last_name=str(p.get("last_name") or "").strip()
         full_name=" ".join(x for x in (first_name,last_name) if x).strip()
@@ -233,9 +233,9 @@ def prepare_application(payload:ApplicationPrepareInput,user=Depends(current_use
             "employer":str(p.get("employer") or "").strip(),"job_title":str(p.get("job_title") or "").strip(),
             "employment_start":str(p.get("employment_start") or "").strip(),"employment_end":str(p.get("employment_end") or "").strip(),
             "experience_summary":str(p.get("experience_summary") or "").strip(),
-            "technical_skills":str(p.get("technical_skills") or ", ".join(resume.skills if resume else [])).strip(),
+            "technical_skills":str(p.get("technical_skills") or ", ".join(resume.skills or [] if resume else [])).strip(),
             "certifications":str(p.get("certifications") or "").strip(),
-            "skills":", ".join(resume.skills if resume else []),
+            "skills":", ".join((resume.skills or []) if resume else []),
             "resume_filename":resume.file_name if resume else "",
         }
         missing=[]
