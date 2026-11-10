@@ -51,7 +51,7 @@ useEffect(()=>localStorage.setItem("nova-preferences",JSON.stringify(prefs)),[pr
 useEffect(()=>localStorage.setItem("nova-resume",JSON.stringify(resume)),[resume]);
 useEffect(()=>{if(!profileLoaded)return;const timer=window.setTimeout(()=>fetch(API+"/api/v2/profile",{method:"PUT",headers:reqHeaders,body:JSON.stringify({data:{...profileData,preferences:prefs,selected_platforms:selected}})}).catch(()=>{}),650);return()=>window.clearTimeout(timer);},[profileData,profileLoaded,prefs,selected]);
 const counts=useMemo(()=>STATUSES.reduce((o,s)=>({...o,[s]:apps.filter(a=>a.status===s).length}),{}),[apps]);
-const total=apps.length,responseRate=total?Math.round(((counts.Responded||0)+(counts.Interview||0)+(counts.Offer||0))/total*100):0;
+const total=apps.length,appliedTotal=apps.filter(a=>a.status!=="Saved").length,responseRate=appliedTotal?Math.round(((counts.Responded||0)+(counts.Interview||0)+(counts.Offer||0))/appliedTotal*100):0;
 const go=id=>{setPage(id);setMobile(false);window.scrollTo({top:0,behavior:"smooth"})};
 const scrollToStep=id=>document.getElementById(id)?.scrollIntoView({behavior:"smooth",block:"start"});
 const togglePlatform=id=>setSelected(v=>v.includes(id)?v.filter(x=>x!==id):[...v,id]);
