@@ -33,3 +33,5 @@ jobs:
         run: pip install -r requirements.txt
       - name: Compile backend
         run: python -m compileall -q backend/app
+      - name: Run backend tests
+        run: python -m unittest discover -s backend/tests -v
