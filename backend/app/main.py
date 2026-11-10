@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import create_engine, String, Integer, Date, Text, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from .providers import GREENHOUSE_BOARDS, LEVER_SITES, ASHBY_BOARDS, search_public_company_boards, _is_us_location
+from .career_discovery import COMPANY_CAREER_SITES, configured_smartrecruiters_companies
 from .verification import verify_job_listing
 
 app=FastAPI(title="Nova Career Intelligence API",version="0.6.0")
@@ -35,7 +36,7 @@ class Application(Base):
     notes:Mapped[str]=mapped_column(Text,default="")
     created_at:Mapped[datetime]=mapped_column(server_default=func.now())
 Base.metadata.create_all(bind=engine)
-STATUSES={"Saved","Applied","Pending","Responded","Interview","Rejected","Offer","Withdrawn"}
+STATUSES={"Saved","In Progress","Ready for Review","Awaiting Submission","Submitted","Applied","Pending","Responded","Interview","Rejected","Offer","Withdrawn"}
 class ApplicationInput(BaseModel):
     company:str=Field(min_length=1,max_length=200)
     role:str=Field(min_length=1,max_length=300)
@@ -55,7 +56,9 @@ class JobSearchRequest(BaseModel):
     query:str=Field(default="",max_length=300)
     location:str=Field(default="United States",max_length=120)
     limit:int=Field(default=50,ge=1,le=100)
-    selected_platforms:list[str]=Field(default_factory=list,max_length=20)
+    selected_platforms:list[str]=Field(default_factory=lambda:["greenhouse","lever","ashby","smartrecruiters","career"],max_length=20)
+    skills:list[str]=Field(default_factory=list,max_length=100)
+    company:str=Field(default="",max_length=200)
     @field_validator("location")
     @classmethod
     def us_only(cls,v):
@@ -94,7 +97,8 @@ PLATFORMS=[
 {"id":"greenhouse","name":"Greenhouse career pages","search":"Public boards when configured","application":"Employer website"},
 {"id":"lever","name":"Lever career pages","search":"Public boards when configured","application":"Employer website"},
 {"id":"ashby","name":"Ashby career pages","search":"Public boards when configured","application":"Employer website"},
-{"id":"career","name":"Other company career pages","search":"Official employer sites","application":"Manual"}]
+{"id":"smartrecruiters","name":"SmartRecruiters career pages","search":"Public company postings when configured","application":"Employer website"},
+{"id":"career","name":"All company career websites","search":"Public career pages and structured job listings","application":"Employer website"}]
 FRONTEND_DIST=Path(__file__).resolve().parents[2]/"frontend"/"dist"
 @app.get("/")
 def root():
@@ -107,14 +111,16 @@ def health():
         return {"status":"ok","database":"connected"}
     except Exception: raise HTTPException(status_code=503,detail="Database health check failed.")
 @app.get("/api/v1/platforms")
-def get_platforms(): return {"platforms":PLATFORMS,"configured_public_boards":len(GREENHOUSE_BOARDS)+len(LEVER_SITES)+len(ASHBY_BOARDS)}
+def get_platforms(): return {"platforms":PLATFORMS,"configured_public_boards":len(GREENHOUSE_BOARDS)+len(LEVER_SITES)+len(ASHBY_BOARDS)+len(configured_smartrecruiters_companies()),"configured_career_sites":len(COMPANY_CAREER_SITES)}
 @app.get("/api/v1/config")
 def get_config():
-    n=len(GREENHOUSE_BOARDS)+len(LEVER_SITES)+len(ASHBY_BOARDS)
+    n=len(GREENHOUSE_BOARDS)+len(LEVER_SITES)+len(ASHBY_BOARDS)+len(configured_smartrecruiters_companies())
     return {"resume_upload_enabled":True,"resume_parsing_enabled":True,"application_tracking_enabled":True,"application_storage":"database",
-    "live_job_search_enabled":n>0,"job_verification_enabled":True,"guided_application_enabled":True,
+    "live_job_search_enabled":True,"job_verification_enabled":True,"guided_application_enabled":True,
     "application_preparation_enabled":False,"application_submission_enabled":False,"provider_integrations_configured":n>0,"configured_public_boards":n,
-    "message":"Nova supports authenticated profiles, saved resumes, application tracking, cover-letter drafts, and public Greenhouse, Lever and Ashby board search. Other job platforms open their official websites; automatic application submission is disabled."}
+    "configured_career_sites":len(COMPANY_CAREER_SITES),
+    "company_site_search_api_configured":bool(os.getenv("GOOGLE_CSE_API_KEY") and os.getenv("GOOGLE_CSE_CX")),
+    "message":"Nova searches configured public ATS feeds and registered employer career sites. Broader Google-indexed career-site discovery requires Google Programmable Search configuration. Application submission remains user-controlled."}
 @app.get("/api/v1/applications")
 def list_applications(workspace_id:str):
     with SessionLocal() as db:
@@ -210,7 +216,7 @@ async def parse_resume(file:UploadFile=File(...)):
     "message":"Resume text extracted. Contact, education and profile fields are best-effort suggestions; review and correct them before use."}
 @app.post("/api/v1/search")
 async def search_jobs(request:JobSearchRequest):
-    return await search_public_company_boards(query=request.query,location=request.location,limit=request.limit,selected_platforms=request.selected_platforms)
+    return await search_public_company_boards(query=request.query,location=request.location,limit=request.limit,selected_platforms=request.selected_platforms,user_skills=request.skills,company=request.company)
 @app.post("/api/v1/verify-job")
 async def verify_job(request:JobVerificationRequest):
     return await verify_job_listing(job_id=request.job_id,submitted_url=request.url,submitted_title=request.title,submitted_company=request.company)
