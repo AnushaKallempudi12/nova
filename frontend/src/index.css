@@ -171,3 +171,14 @@
 .trash-draft{display:grid;place-items:center;border:1px solid #f0d8d8;background:#fff7f7;color:#b34d4d;border-radius:8px;padding:9px;cursor:pointer}
 .trash-draft:hover{background:#feecec}
 @media(max-width:650px){.job-results-toolbar{align-items:stretch;display:grid;grid-template-columns:1fr 1fr}.job-results-count{grid-column:1/-1}.job-results-toolbar label select{width:100%;min-width:0}.job-results-toolbar>.link-button{grid-column:1/-1;text-align:left}}
+
+
+/* External job-board shortcuts and branded destructive-action confirmation */
+.external-search-links{margin:12px 0 16px;padding:13px 15px;border:1px solid #dce5f0;border-radius:11px;background:#f7f9fd}
+.external-search-links>b{display:block;color:#263852;font-size:12px}
+.external-search-links>p{margin:5px 0 10px;color:#64748b;font-size:10px;line-height:1.5}
+.external-search-links>div{display:flex;flex-wrap:wrap;gap:8px}
+.external-search-links a{display:inline-flex;align-items:center;gap:5px;padding:7px 9px;border:1px solid #dce5f0;border-radius:8px;background:#fff;color:#315db5;text-decoration:none;font-size:11px;font-weight:650}
+.external-search-links a:hover{background:#eef4ff;border-color:#9db4e4}
+.danger-button{background:#b93838!important;border-color:#b93838!important;color:#fff!important}
+@media(max-width:600px){.external-search-links>div{display:grid;grid-template-columns:1fr 1fr}.external-search-links a{justify-content:center}}
