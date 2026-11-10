@@ -211,6 +211,7 @@ async def search_public_company_boards(
     limit: int = 50,
     selected_platforms: list[str] | None = None,
     user_skills: list[str] | None = None,
+    company: str = "",
 ) -> dict:
     """Search all selected live feeds plus registered official career sites."""
     platform_names = {
@@ -277,7 +278,7 @@ async def search_public_company_boards(
 
         if direct_sites_enabled:
             career_jobs, career_statuses = await search_company_career_sites(
-                client, query, location, limit=max(1, min(limit, 100))
+                client, query, location, limit=max(1, min(limit, 100)), company=company
             )
             jobs.extend(career_jobs)
             statuses.extend(career_statuses)
@@ -286,6 +287,9 @@ async def search_public_company_boards(
         for rows, status in results:
             jobs.extend(rows)
             statuses.append(status)
+
+    if company.strip():
+        jobs = [job for job in jobs if company.strip().lower() in str(job.get("company", "")).lower()]
 
     # Normalize duplicates across multiple sources using the canonical URL first,
     # then company/title/location as a fallback.
