@@ -115,7 +115,7 @@ class CareerDiscoveryTests(unittest.TestCase):
                     return await _tavily_search(client, "Software Engineer", "India", 20)
         jobs, status = asyncio.run(run())
         self.assertEqual(len(jobs), 1)
-        self.assertEqual(jobs[0]["source"], "Company Career Site")
+        self.assertEqual(jobs[0]["source"], "Greenhouse")
         self.assertEqual(status["provider"], "Tavily Career Search")
 
     def test_trusted_job_link_survives_automated_forbidden_response(self):
