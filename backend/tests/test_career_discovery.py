@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import patch
 import httpx
 
-from backend.app.career_discovery import normalize_jsonld_jobs, _matches, _tavily_search
+from backend.app.career_discovery import normalize_jsonld_jobs, _matches, _tavily_search, search_company_career_sites
 from backend.app.providers import _confirm_job_page
 
 
@@ -35,6 +35,42 @@ class CareerDiscoveryTests(unittest.TestCase):
         self.assertEqual(jobs[0]["company"], "Example Corp")
         self.assertEqual(jobs[0]["url"], "https://careers.example.com/jobs/123")
         self.assertIn("Dallas", jobs[0]["location"])
+
+
+    def test_company_career_job_shows_actual_source_name(self):
+        document = """
+        <script type="application/ld+json">
+        {"@type":"JobPosting","title":"Software Engineer","url":"https://careers.tcs.com/job/123",
+         "description":"Java services","hiringOrganization":{"name":"Tata Consultancy Services"},
+         "jobLocation":{"address":{"addressLocality":"Hyderabad","addressRegion":"Telangana","addressCountry":"India"}}}
+        </script>
+        """
+        jobs = normalize_jsonld_jobs(document, "TCS", "https://www.tcs.com/careers")
+        self.assertEqual(jobs[0]["source"], "TCS Careers")
+
+    def test_selected_company_career_source_is_searched_without_tavily(self):
+        document = """
+        <script type="application/ld+json">
+        {"@type":"JobPosting","title":"Software Engineer","url":"https://www.tcs.com/careers/job/123",
+         "description":"Java services","hiringOrganization":{"name":"Tata Consultancy Services"},
+         "jobLocation":{"address":{"addressLocality":"Hyderabad","addressRegion":"Telangana","addressCountry":"India"}}}
+        </script>
+        """
+        requested = []
+        def handler(request):
+            requested.append(request.url.host)
+            return httpx.Response(200, request=request, text=document)
+        async def run():
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                return await search_company_career_sites(
+                    client, "Software Engineer", "India",
+                    use_tavily=False, selected_companies=["TCS"]
+                )
+        jobs, statuses = asyncio.run(run())
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual(jobs[0]["source"], "TCS Careers")
+        self.assertEqual(requested, ["www.tcs.com"])
+        self.assertFalse(any(row["provider"] == "Tavily Career Search" for row in statuses))
 
     def test_ignores_non_https_job_urls(self):
         document = """
@@ -79,7 +115,7 @@ class CareerDiscoveryTests(unittest.TestCase):
                     return await _tavily_search(client, "Software Engineer", "India", 20)
         jobs, status = asyncio.run(run())
         self.assertEqual(len(jobs), 1)
-        self.assertEqual(jobs[0]["source"], "Company Career Site")
+        self.assertEqual(jobs[0]["source"], "Greenhouse")
         self.assertEqual(status["provider"], "Tavily Career Search")
 
     def test_trusted_job_link_survives_automated_forbidden_response(self):

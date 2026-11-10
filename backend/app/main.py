@@ -57,6 +57,8 @@ class JobSearchRequest(BaseModel):
     location:str=Field(default="United States",max_length=120)
     limit:int=Field(default=50,ge=1,le=100)
     selected_platforms:list[str]=Field(default_factory=lambda:["greenhouse","lever","ashby","smartrecruiters","career"],max_length=20)
+    selected_company_sources:list[str]=Field(default_factory=list,max_length=30)
+    use_tavily_fallback:bool=False
     skills:list[str]=Field(default_factory=list,max_length=100)
     company:str=Field(default="",max_length=200)
     @field_validator("location")
@@ -227,7 +229,7 @@ async def parse_resume(file:UploadFile=File(...)):
     "message":"Resume text extracted. Contact, education and profile fields are best-effort suggestions; review and correct them before use."}
 @app.post("/api/v1/search")
 async def search_jobs(request:JobSearchRequest):
-    return await search_public_company_boards(query=request.query,location=request.location,limit=request.limit,selected_platforms=request.selected_platforms,user_skills=request.skills,company=request.company)
+    return await search_public_company_boards(query=request.query,location=request.location,limit=request.limit,selected_platforms=request.selected_platforms,selected_company_sources=request.selected_company_sources,use_tavily_fallback=request.use_tavily_fallback,user_skills=request.skills,company=request.company)
 @app.post("/api/v1/verify-job")
 async def verify_job(request:JobVerificationRequest):
     return await verify_job_listing(job_id=request.job_id,submitted_url=request.url,submitted_title=request.title,submitted_company=request.company)

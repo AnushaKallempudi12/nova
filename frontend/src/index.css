@@ -187,3 +187,5 @@
 .job-title-link:hover{color:#315db5;text-decoration:underline}
 
 .country-switch{display:flex;gap:6px;margin:10px 0 14px}.country-switch button{border:1px solid #dce5f0;border-radius:9px;padding:8px 14px;background:#fff;color:#53647b;font-size:12px;font-weight:700;cursor:pointer}.country-switch button.active{background:#edf3ff;border-color:#7897d4;color:#1e3a68}.platform-choice>a{flex-shrink:0;padding:7px 9px;border-left:1px solid #e2e8f0}.platform-choice label{overflow:hidden}.platform-choice label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.source-section-title{margin:16px 0 9px;color:#263852;font-size:13px;font-weight:750}.source-section-title:first-child{margin-top:4px}.platform-choice>a{font-size:11px;white-space:nowrap;color:#315db5;text-decoration:none;padding:6px 8px;border-left:1px solid #e2e8f0}.platform-choice>a:hover{text-decoration:underline}
