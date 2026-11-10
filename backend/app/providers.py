@@ -220,6 +220,8 @@ async def search_public_company_boards(
     selected_platforms: list[str] | None = None,
     user_skills: list[str] | None = None,
     company: str = "",
+    selected_company_sources: list[str] | None = None,
+    use_tavily_fallback: bool = False,
 ) -> dict:
     """Search all selected live feeds plus registered official career sites."""
     platform_names = {
@@ -231,7 +233,14 @@ async def search_public_company_boards(
         "naukri": "Naukri", "foundit": "Foundit", "instahyre": "Instahyre",
         "cutshort": "Cutshort", "hirist": "Hirist", "iimjobs": "IIMJobs",
         "shine": "Shine", "timesjobs": "TimesJobs", "freshersworld": "Freshersworld", "apna": "Apna",
-        "career": "Company career websites", "other": "Other supported portals",
+        "career": "All company career websites", "other": "Other supported portals",
+        "company-tcs": "TCS Careers", "company-accenture": "Accenture Careers",
+        "company-ibm": "IBM Careers", "company-infosys": "Infosys Careers",
+        "company-wipro": "Wipro Careers", "company-hcltech": "HCLTech Careers",
+        "company-techmahindra": "Tech Mahindra Careers", "company-cognizant": "Cognizant Careers",
+        "company-capgemini": "Capgemini Careers", "company-deloitte": "Deloitte Careers",
+        "company-amazon": "Amazon Careers", "company-google": "Google Careers",
+        "company-microsoft": "Microsoft Careers",
     }
     selected = set(selected_platforms if selected_platforms is not None else
                    ["greenhouse", "lever", "ashby", "smartrecruiters", "career"])
@@ -241,15 +250,24 @@ async def search_public_company_boards(
         "Ashby": ("ashby" in selected, ASHBY_BOARDS),
         "SmartRecruiters": ("smartrecruiters" in selected, configured_smartrecruiters_companies()),
     }
-    external = [platform_names[key] for key in sorted(selected) if key in platform_names]
+    company_source_ids = set(selected_company_sources or []) | {key for key in selected if key.startswith("company-")}
+    company_name_by_id = {
+        "company-tcs": "TCS", "company-accenture": "Accenture", "company-ibm": "IBM",
+        "company-infosys": "Infosys", "company-wipro": "Wipro", "company-hcltech": "HCLTech",
+        "company-techmahindra": "Tech Mahindra", "company-cognizant": "Cognizant",
+        "company-capgemini": "Capgemini", "company-deloitte": "Deloitte",
+        "company-amazon": "Amazon", "company-google": "Google", "company-microsoft": "Microsoft",
+    }
+    selected_company_names = [company_name_by_id[key] for key in company_source_ids if key in company_name_by_id]
+    external = [platform_names[key] for key in sorted(selected) if key in platform_names and not key.startswith("company-")]
     configured = sum(len(boards) for enabled, boards in provider_selection.values() if enabled)
-    direct_sites_enabled = bool({"career", "all"} & selected)
+    direct_sites_enabled = bool({"career", "all"} & selected) or bool(selected_company_names)
     live_ats_enabled = any(enabled for enabled, _ in provider_selection.values())
     if not direct_sites_enabled and not live_ats_enabled:
         return {
             "jobs": [], "sources_checked": [], "configured_sources": 0,
             "external_platforms": external,
-            "message": "Select All company websites or at least one connected ATS source to search live jobs.",
+            "message": "Select at least one company career page or live ATS source. Job boards such as LinkedIn and Naukri open their official websites.",
         }
 
     timeout = httpx.Timeout(14.0, connect=5.0)
@@ -305,7 +323,8 @@ async def search_public_company_boards(
         if direct_sites_enabled:
             career_jobs, career_statuses = await search_company_career_sites(
                 client, query, location, limit=max(1, min(limit, 100)), company=company,
-                use_tavily=len(jobs) < min(5, limit),
+                use_tavily=use_tavily_fallback and len(jobs) < min(5, limit),
+                selected_companies=selected_company_names,
             )
             jobs.extend(career_jobs)
             statuses.extend(career_statuses)
