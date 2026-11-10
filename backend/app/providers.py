@@ -263,6 +263,9 @@ async def search_public_company_boards(
                     return rows, (source_statuses[0] if source_statuses else {
                         "provider": "SmartRecruiters", "company": identifier, "status": "ok", "count": len(rows)
                     })
+                except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+                    return [], {"provider": provider, "company": identifier, "status": "error",
+                                "count": 0, "message": str(exc)[:160]}
 
         tasks = []
         for provider, (enabled, boards) in provider_selection.items():
