@@ -8,8 +8,8 @@ Nova is a private job-search workspace with authenticated accounts, saved resume
 - Account-scoped PostgreSQL records for profile details, extracted resume text, job preferences, applications and generated cover letters.
 - Optional profile fields; users can skip anything they do not want to provide.
 - Resume parsing for text-based PDF and DOCX files (10 MB maximum). The original upload is processed in memory; extracted resume text and detected skills are saved to the account database.
-- Expanded job-source catalog: LinkedIn, Indeed, Dice, Wellfound, Built In, ZipRecruiter, Glassdoor, Monster, Handshake, USAJOBS, FlexJobs, We Work Remotely, and employer ATS career pages.
-- Live public employer-board search across Greenhouse, Lever, Ashby and optional SmartRecruiters company boards.
+- Expanded job-source catalog: LinkedIn, Indeed, Dice, Wellfound, Built In, ZipRecruiter, Glassdoor, Monster, Handshake, USAJOBS, FlexJobs, We Work Remotely, and employer ATS career pages. Users can open prefilled searches on external portals; Nova does not scrape those services.
+- Live public employer-board search across Greenhouse, Lever, Ashby and optional SmartRecruiters company boards, plus optional Tavily discovery across recognized employer career and ATS pages.
 - Universal employer career-site discovery across a starter registry including Google, Apple, Amazon, Microsoft, Walmart, Meta, NVIDIA, Adobe, Salesforce and IBM. Public schema.org JobPosting data is extracted when the employer page exposes it.
 - Optional Tavily Search integration discovers role-specific listings on employer career sites and recognized ATS hosts. Searching for a named company also supports employers outside the starter registry. Configure `TAVILY_API_KEY` on the backend; without it, Nova continues using direct ATS feeds and public JobPosting structured data.
 - Additional official career sites can be registered with `NOVA_CAREER_SITES`; this avoids pretending every company exposes a common public API.
