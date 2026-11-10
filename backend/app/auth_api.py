@@ -4,7 +4,7 @@ from datetime import date, datetime
 from typing import Optional
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import String, Integer, Date, DateTime, Text, JSON, func
 from sqlalchemy.orm import Mapped, mapped_column
 from urllib.parse import urlparse
