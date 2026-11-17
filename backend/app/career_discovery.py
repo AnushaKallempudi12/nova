@@ -488,7 +488,7 @@ def enrich_job_matches(jobs: list[dict], skills: list[str]) -> list[dict]:
             })
             continue
 
-        weights = {"required": 2, "preferred": 1, "unspecified": 1}
+        weights = {"required": 3, "preferred": 0.5, "unspecified": 1}
         total_weight = sum(weights[item["priority"]] for item in requirements)
         matched = [item["skill"] for item in requirements
                    if item["skill"].casefold() in candidate]
@@ -529,6 +529,6 @@ def enrich_job_matches(jobs: list[dict], skills: list[str]) -> list[dict]:
             "match_score": score,
             "match_recommendation": recommendation,
             "match_explanation": explanation,
-            "match_method": "Weighted job-skill coverage (required skills weighted 2x preferred/unspecified)",
+            "match_method": "Weighted job-skill coverage (required skills prioritized over preferred skills)",
         })
     return jobs

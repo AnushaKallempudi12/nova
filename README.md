@@ -72,7 +72,7 @@ LinkedIn, Indeed, Glassdoor, ZipRecruiter, Dice, Wellfound and other external po
 
 Selecting Apply with Nova creates or updates an application record automatically and opens an editable review of saved profile information. The optional local browser extension can fill supported text, email, phone, textarea and select fields on the employer's current page after the user clicks its toolbar action. The extension never submits an application, never stores employer passwords, never overwrites non-empty fields, and deliberately skips work authorization, visa, sponsorship, demographic, salary and other sensitive questions. Users attach their resume file manually because Nova retains extracted resume text rather than the original upload. After submitting on the employer website, users can confirm the outcome in Nova to mark the Dashboard record Submitted. This confirmation is user-reported, not an independently verified employer receipt.
 
-Install and use the extension by following `browser-extension/README.md`. Job matching uses transparent weighted coverage of recognizable skills in the job description. Required skills carry more weight than preferred or unspecified skills; missing skills are disclosed as gaps, not automatic disqualifiers. Scores are guidance, not a prediction of hiring outcomes. Results show matched resume skills so users can understand the score.
+Install and use the extension by following `browser-extension/README.md`. Job matching currently reports exact resume-skill keyword overlap, not a semantic or validated prediction. Results show matched resume skills so users can understand the score.
 
 ## Local development
 
