@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import patch
 import httpx
 
-from backend.app.career_discovery import normalize_jsonld_jobs, _matches, _tavily_search, search_company_career_sites
+from backend.app.career_discovery import normalize_jsonld_jobs, _matches, _tavily_search, search_company_career_sites, enrich_job_matches
 from backend.app.providers import _confirm_job_page
 
 
@@ -128,6 +128,38 @@ class CareerDiscoveryTests(unittest.TestCase):
                     "source": "Greenhouse",
                 })
         self.assertTrue(asyncio.run(run()))
+
+    def test_java_match_with_missing_cpp_is_consider_applying_not_rejected(self):
+        jobs = [{"title": "Software Engineer", "description":
+                 "Required qualifications: Java and C++ experience. Build backend services."}]
+        result = enrich_job_matches(jobs, ["Java"])[0]
+        self.assertEqual(result["matched_skills"], ["Java"])
+        self.assertEqual(result["missing_required_skills"], ["C++"])
+        self.assertEqual(result["match_score"], 50)
+        self.assertEqual(result["match_recommendation"], "Consider applying")
+        self.assertIn("not an automatic disqualification", result["match_explanation"])
+
+    def test_preferred_skill_gap_is_separated_from_required_gap(self):
+        jobs = [{"title": "Backend Engineer", "description":
+                 "Required: Java. Preferred qualifications: Kubernetes and AWS."}]
+        result = enrich_job_matches(jobs, ["Java"])[0]
+        self.assertEqual(result["matched_skills"], ["Java"])
+        self.assertEqual(result["missing_required_skills"], [])
+        self.assertEqual(result["missing_preferred_skills"], ["Kubernetes", "AWS"])
+        self.assertEqual(result["match_score"], 75)
+        self.assertEqual(result["match_recommendation"], "Apply")
+
+    def test_no_resume_skills_does_not_create_a_zero_score(self):
+        jobs = [{"title": "Software Engineer", "description": "Required: Java and Python."}]
+        result = enrich_job_matches(jobs, [])[0]
+        self.assertIsNone(result["match_score"])
+        self.assertEqual(result["match_recommendation"], "Add your resume")
+
+    def test_profile_skills_not_mentioned_in_job_are_not_reported_as_missing_requirements(self):
+        jobs = [{"title": "Java Developer", "description": "Required: Java and Spring Boot."}]
+        result = enrich_job_matches(jobs, ["Java", "Spring Boot", "Selenium"])[0]
+        self.assertEqual(result["missing_required_skills"], [])
+        self.assertEqual(result["unmatched_profile_skills"], ["Selenium"])
 
 
 if __name__ == "__main__":
