@@ -361,15 +361,174 @@ def configured_smartrecruiters_companies() -> list[str]:
     ))[:40]
 
 
+# Canonical skills used for transparent, explainable resume-to-job comparison.
+# Keep patterns specific: one-letter languages and generic terms create false positives.
+JOB_SKILL_PATTERNS = [
+    ("Spring Boot", r"(?<![a-z0-9])spring\\s+boot(?![a-z0-9])"),
+    ("JavaScript", r"(?<![a-z0-9])javascript(?![a-z0-9])"),
+    ("TypeScript", r"(?<![a-z0-9])typescript(?![a-z0-9])"),
+    ("C++", r"(?<![a-z0-9])c\\+\\+(?![a-z0-9])"),
+    ("C#", r"(?<![a-z0-9])c#(?![a-z0-9])"),
+    ("Python", r"(?<![a-z0-9])python(?![a-z0-9])"),
+    ("Java", r"(?<![a-z0-9])java(?![a-z0-9])"),
+    ("SQL", r"(?<![a-z0-9])sql(?![a-z0-9])"),
+    ("React", r"(?<![a-z0-9])react(?![a-z0-9])"),
+    ("FastAPI", r"(?<![a-z0-9])fastapi(?![a-z0-9])"),
+    ("REST APIs", r"(?<![a-z0-9])rest(?:ful)?\\s+apis?(?![a-z0-9])"),
+    ("REST Assured", r"(?<![a-z0-9])rest\\s+assured(?![a-z0-9])"),
+    ("Selenium", r"(?<![a-z0-9])selenium(?![a-z0-9])"),
+    ("Cucumber", r"(?<![a-z0-9])cucumber(?![a-z0-9])"),
+    ("TestNG", r"(?<![a-z0-9])testng(?![a-z0-9])"),
+    ("Maven", r"(?<![a-z0-9])maven(?![a-z0-9])"),
+    ("Docker", r"(?<![a-z0-9])docker(?![a-z0-9])"),
+    ("Kubernetes", r"(?<![a-z0-9])kubernetes(?![a-z0-9])"),
+    ("AWS", r"(?<![a-z0-9])aws(?![a-z0-9])"),
+    ("Azure", r"(?<![a-z0-9])azure(?![a-z0-9])"),
+    ("Git", r"(?<![a-z0-9])git(?![a-z0-9])"),
+    ("GitHub", r"(?<![a-z0-9])github(?![a-z0-9])"),
+    ("Jenkins", r"(?<![a-z0-9])jenkins(?![a-z0-9])"),
+    ("CI/CD", r"(?<![a-z0-9])ci\\s*/\\s*cd(?![a-z0-9])"),
+    ("PostgreSQL", r"(?<![a-z0-9])postgres(?:ql)?(?![a-z0-9])"),
+    ("MySQL", r"(?<![a-z0-9])mysql(?![a-z0-9])"),
+    ("MongoDB", r"(?<![a-z0-9])mongodb(?![a-z0-9])"),
+    ("Power BI", r"(?<![a-z0-9])power\\s*bi(?![a-z0-9])"),
+    ("Tableau", r"(?<![a-z0-9])tableau(?![a-z0-9])"),
+    ("Machine Learning", r"(?<![a-z0-9])machine\\s+learning(?![a-z0-9])"),
+    ("Deep Learning", r"(?<![a-z0-9])deep\\s+learning(?![a-z0-9])"),
+    ("Pandas", r"(?<![a-z0-9])pandas(?![a-z0-9])"),
+    ("NumPy", r"(?<![a-z0-9])numpy(?![a-z0-9])"),
+    ("PyTorch", r"(?<![a-z0-9])pytorch(?![a-z0-9])"),
+    ("TensorFlow", r"(?<![a-z0-9])tensorflow(?![a-z0-9])"),
+    ("Jira", r"(?<![a-z0-9])jira(?![a-z0-9])"),
+    ("Dynatrace", r"(?<![a-z0-9])dynatrace(?![a-z0-9])"),
+    ("Agile", r"(?<![a-z0-9])agile(?![a-z0-9])"),
+]
+
+_PREFERRED_CUES = re.compile(
+    r"\\b(preferred|nice[- ]to[- ]have|bonus|desirable|a plus|ideally|would be great|"
+    r"good to have|preferred qualifications)\\b", re.I
+)
+_REQUIRED_CUES = re.compile(
+    r"\\b(required|must[- ]have|minimum qualifications|basic qualifications|"
+    r"what you will need|what you'll need|you have|need to have|requirements)\\b", re.I
+)
+
+
+def _candidate_skill_set(skills: list[str]) -> tuple[list[str], set[str]]:
+    clean = list(dict.fromkeys(
+        item.strip() for item in skills
+        if isinstance(item, str) and item.strip()
+    ))[:100]
+    aliases = {
+        "rest api": "rest apis", "restful api": "rest apis",
+        "restful apis": "rest apis", "postgres": "postgresql",
+    }
+    normalized = {aliases.get(item.casefold(), item.casefold()) for item in clean}
+    return clean, normalized
+
+
+def _job_skill_requirements(job: dict) -> list[dict]:
+    text = " ".join(str(job.get(key, "") or "") for key in ("title", "description"))
+    lower = text.casefold()
+    found = []
+    for name, pattern in JOB_SKILL_PATTERNS:
+        positions = list(re.finditer(pattern, lower, re.I))
+        if not positions:
+            continue
+        priorities = []
+        for match in positions:
+            context = lower[max(0, match.start() - 120):min(len(lower), match.end() + 120)]
+            if re.search(r"\\bnot required\\b|\\bnot a requirement\\b", context):
+                priorities.append("preferred")
+            elif _PREFERRED_CUES.search(context):
+                priorities.append("preferred")
+            elif _REQUIRED_CUES.search(context):
+                priorities.append("required")
+            else:
+                priorities.append("unspecified")
+        priority = "required" if "required" in priorities else (
+            "preferred" if "preferred" in priorities else "unspecified"
+        )
+        found.append({"skill": name, "priority": priority})
+    return found
+
+
 def enrich_job_matches(jobs: list[dict], skills: list[str]) -> list[dict]:
-    clean_skills = list(dict.fromkeys(s.strip() for s in skills if isinstance(s, str) and s.strip()))[:100]
-    if not clean_skills:
-        return jobs
+    """Score job skill coverage; disclose gaps without treating one missing skill as an automatic rejection."""
+    clean_skills, candidate = _candidate_skill_set(skills)
+    aliases = {"rest api": "rest apis", "restful api": "rest apis",
+               "restful apis": "rest apis", "postgres": "postgresql"}
     for job in jobs:
-        haystack = " ".join(str(job.get(k, "")) for k in ("title", "description")).lower()
-        matched = [skill for skill in clean_skills if skill.lower() in haystack]
-        job["matched_skills"] = matched
-        job["unmatched_profile_skills"] = [skill for skill in clean_skills if skill not in matched]
-        job["match_score"] = round(len(matched) / min(len(clean_skills), 8) * 100)
-        job["match_method"] = "Exact resume-skill keyword overlap"
+        requirements = _job_skill_requirements(job)
+        if not clean_skills:
+            job.update({
+                "matched_skills": [], "missing_required_skills": [],
+                "missing_preferred_skills": [], "missing_other_skills": [],
+                "unmatched_profile_skills": [], "match_score": None,
+                "match_recommendation": "Add your resume",
+                "match_explanation": "Upload a resume to compare your skills with this job.",
+                "match_method": "Weighted job-skill coverage",
+            })
+            continue
+
+        if not requirements:
+            haystack = " ".join(str(job.get(key, "") or "") for key in ("title", "description")).casefold()
+            matched = [skill for skill in clean_skills if aliases.get(skill.casefold(), skill.casefold()) in haystack]
+            score = round(len(matched) / max(1, min(len(clean_skills), 8)) * 100) if matched else None
+            job.update({
+                "matched_skills": matched, "missing_required_skills": [],
+                "missing_preferred_skills": [], "missing_other_skills": [],
+                "unmatched_profile_skills": [skill for skill in clean_skills if skill not in matched],
+                "match_score": score,
+                "match_recommendation": "Review manually" if score is None else (
+                    "Apply" if score >= 75 else "Consider applying" if score >= 40 else "Low relevance"
+                ),
+                "match_explanation": "The job description did not expose enough recognizable skills for a requirements-based comparison.",
+                "match_method": "Resume-skill mentions; limited job requirements",
+            })
+            continue
+
+        weights = {"required": 2, "preferred": 1, "unspecified": 1}
+        total_weight = sum(weights[item["priority"]] for item in requirements)
+        matched = [item["skill"] for item in requirements
+                   if item["skill"].casefold() in candidate]
+        missing_required = [item["skill"] for item in requirements
+                            if item["priority"] == "required" and item["skill"].casefold() not in candidate]
+        missing_preferred = [item["skill"] for item in requirements
+                             if item["priority"] == "preferred" and item["skill"].casefold() not in candidate]
+        missing_other = [item["skill"] for item in requirements
+                         if item["priority"] == "unspecified" and item["skill"].casefold() not in candidate]
+        earned = sum(weights[item["priority"]] for item in requirements
+                     if item["skill"].casefold() in candidate)
+        score = round(earned / total_weight * 100) if total_weight else None
+        recommendation = (
+            "Apply" if score is not None and score >= 75 else
+            "Consider applying" if score is not None and score >= 40 else
+            "Low relevance"
+        )
+        gaps = missing_required + missing_preferred + missing_other
+        if missing_required:
+            explanation = (
+                f"Matched {len(matched)} of {len(requirements)} identified job skills. "
+                f"Review the required-skill gaps: {', '.join(missing_required)}. "
+                "A missing skill is a gap to consider, not an automatic disqualification."
+            )
+        else:
+            explanation = (
+                f"Matched {len(matched)} of {len(requirements)} identified job skills. "
+                "No explicitly required skill gaps were detected; review preferred and unspecified skills."
+            )
+        job.update({
+            "matched_skills": matched,
+            "missing_required_skills": missing_required,
+            "missing_preferred_skills": missing_preferred,
+            "missing_other_skills": missing_other,
+            "unmatched_profile_skills": [skill for skill in clean_skills
+                                         if skill.casefold() not in {item["skill"].casefold() for item in requirements}],
+            "job_skill_requirements": requirements,
+            "match_score": score,
+            "match_recommendation": recommendation,
+            "match_explanation": explanation,
+            "match_method": "Weighted job-skill coverage (required skills weighted 2x preferred/unspecified)",
+        })
     return jobs

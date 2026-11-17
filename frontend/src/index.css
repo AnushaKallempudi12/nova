@@ -216,3 +216,5 @@
 .job-pagination>div{display:flex;align-items:center;gap:10px}
 .job-pagination b{color:#34445d;font-size:12px;white-space:nowrap}
 @media(max-width:600px){.source-picker-actions{width:100%;justify-content:space-between}.platform-inline .tavily-opt-in{margin-top:22px;padding:12px}.job-pagination{align-items:stretch;flex-direction:column}.job-pagination>div{justify-content:space-between}.job-pagination button{flex:1}}
+
+.match-recommendation{display:inline-flex;align-items:center;gap:10px;margin:7px 0 2px;padding:6px 9px;border-radius:7px;background:#f1f4f9;color:#53647d;font-size:9px;font-weight:700}.match-recommendation span{font-weight:500;opacity:.8}.match-recommendation.good{background:#eaf7f1;color:#278266}.match-recommendation.review{background:#fff6e8;color:#a8792d}.match-recommendation.low{background:#f1f3f7;color:#66758b}.match-explanation{font-size:8px!important;line-height:1.6;color:#77859a!important;max-width:640px}.job-card .job-gap{font-size:8px;color:#a45c55;margin-top:5px}.job-card .job-gap.preferred{color:#8b7a55}
