@@ -193,7 +193,7 @@ async def parse_resume(file:UploadFile=File(...)):
     except Exception as exc: raise HTTPException(status_code=422,detail="Could not read this document. Try a text-based PDF or DOCX. "+str(exc)[:100])
     clean=re.sub(r"[ \t]+"," ",text);clean=re.sub(r"\n{3,}","\n\n",clean).strip()
     if len(clean)<40: raise HTTPException(status_code=422,detail="Very little text was extracted. Scanned-image OCR is not enabled yet.")
-    skills_catalog=["Java","Python","JavaScript","TypeScript","SQL","Spring Boot","React","FastAPI","REST API","REST Assured","Selenium","Cucumber","TestNG","Maven","Docker","Kubernetes","AWS","Azure","Git","GitHub","Jenkins","CI/CD","PostgreSQL","MySQL","MongoDB","Power BI","Tableau","Machine Learning","Deep Learning","Pandas","NumPy","PyTorch","TensorFlow","Jira","Dynatrace","Agile","HTML","CSS"]
+    skills_catalog=["Java","C++","C#","Python","JavaScript","TypeScript","SQL","Spring Boot","React","FastAPI","REST API","REST Assured","Selenium","Cucumber","TestNG","Maven","Docker","Kubernetes","AWS","Azure","Git","GitHub","Jenkins","CI/CD","PostgreSQL","MySQL","MongoDB","Power BI","Tableau","Machine Learning","Deep Learning","Pandas","NumPy","PyTorch","TensorFlow","Jira","Dynatrace","Agile","HTML","CSS"]
     lower=clean.lower();skills=[s for s in skills_catalog if re.search(r"(?<![a-z0-9])"+re.escape(s.lower())+r"(?![a-z0-9])",lower)]
     email=re.search(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}",clean,re.I)
     phone=re.search(r"(?<!\w)(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}(?!\w)",clean)
