@@ -439,21 +439,21 @@ def _job_skill_requirements(job: dict) -> list[dict]:
         for match in positions:
             left = max(lower.rfind(".", 0, match.start()),
                        lower.rfind(";", 0, match.start()),
-                       lower.rfind("\\n", 0, match.start())) + 1
+                       lower.rfind("\n", 0, match.start())) + 1
             right_candidates = [value for value in (
                 lower.find(".", match.end()), lower.find(";", match.end()),
-                lower.find("\\n", match.end())
+                lower.find("\n", match.end())
             ) if value >= 0]
             right = min(right_candidates) if right_candidates else len(lower)
             segment = lower[left:right]
-            if re.search(r"\\bnot required\\b|\\bnot a requirement\\b", segment) or _PREFERRED_CUES.search(segment):
+            if re.search(r"\bnot required\b|\bnot a requirement\b", segment) or _PREFERRED_CUES.search(segment):
                 priority = "preferred"
             elif _REQUIRED_CUES.search(segment):
                 priority = "required"
             else:
-                previous_line_start = lower.rfind("\\n", 0, left) + 1
+                previous_line_start = lower.rfind("\n", 0, left) + 1
                 previous_line = lower[previous_line_start:left].strip()
-                if re.search(r"\\bnot required\\b|\\bnot a requirement\\b", previous_line) or _PREFERRED_CUES.search(previous_line):
+                if re.search(r"\bnot required\b|\bnot a requirement\b", previous_line) or _PREFERRED_CUES.search(previous_line):
                     priority = "preferred"
                 elif _REQUIRED_CUES.search(previous_line):
                     priority = "required"
