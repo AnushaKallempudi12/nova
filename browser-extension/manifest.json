@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Nova Application Autofill",
+  "version": "0.1.0",
+  "description": "Fill supported employer application fields from your locally stored Nova profile.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "https://nova-frontend-production-fe57.up.railway.app/*",
+    "http://localhost:5173/*"
+  ],
+  "background": {"service_worker": "background.js"},
+  "content_scripts": [{
+    "matches": [
+      "https://nova-frontend-production-fe57.up.railway.app/*",
+      "http://localhost:5173/*"
+    ],
+    "js": ["sync.js"],
+    "run_at": "document_idle"
+  }],
+  "action": {"default_title": "Nova Autofill", "default_popup": "popup.html"}
+}

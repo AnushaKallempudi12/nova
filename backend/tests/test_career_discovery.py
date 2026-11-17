@@ -146,7 +146,8 @@ class CareerDiscoveryTests(unittest.TestCase):
         self.assertEqual(result["matched_skills"], ["Java"])
         self.assertEqual(result["missing_required_skills"], [])
         self.assertEqual(result["missing_preferred_skills"], ["Kubernetes", "AWS"])
-        self.assertEqual(result["match_recommendation"], "Apply")
+        self.assertEqual(result["match_score"], 50)
+        self.assertEqual(result["match_recommendation"], "Consider applying")
 
     def test_no_resume_skills_does_not_create_a_zero_score(self):
         jobs = [{"title": "Software Engineer", "description": "Required: Java and Python."}]

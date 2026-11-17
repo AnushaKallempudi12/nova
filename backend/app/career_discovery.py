@@ -364,18 +364,18 @@ def configured_smartrecruiters_companies() -> list[str]:
 # Canonical skills used for transparent, explainable resume-to-job comparison.
 # Keep patterns specific: one-letter languages and generic terms create false positives.
 JOB_SKILL_PATTERNS = [
-    ("Spring Boot", r"(?<![a-z0-9])spring\\s+boot(?![a-z0-9])"),
+    ("Spring Boot", r"(?<![a-z0-9])spring\s+boot(?![a-z0-9])"),
     ("JavaScript", r"(?<![a-z0-9])javascript(?![a-z0-9])"),
     ("TypeScript", r"(?<![a-z0-9])typescript(?![a-z0-9])"),
-    ("C++", r"(?<![a-z0-9])c\\+\\+(?![a-z0-9])"),
+    ("C++", r"(?<![a-z0-9])c\+\+(?![a-z0-9])"),
     ("C#", r"(?<![a-z0-9])c#(?![a-z0-9])"),
     ("Python", r"(?<![a-z0-9])python(?![a-z0-9])"),
     ("Java", r"(?<![a-z0-9])java(?![a-z0-9])"),
     ("SQL", r"(?<![a-z0-9])sql(?![a-z0-9])"),
     ("React", r"(?<![a-z0-9])react(?![a-z0-9])"),
     ("FastAPI", r"(?<![a-z0-9])fastapi(?![a-z0-9])"),
-    ("REST APIs", r"(?<![a-z0-9])rest(?:ful)?\\s+apis?(?![a-z0-9])"),
-    ("REST Assured", r"(?<![a-z0-9])rest\\s+assured(?![a-z0-9])"),
+    ("REST APIs", r"(?<![a-z0-9])rest(?:ful)?\s+apis?(?![a-z0-9])"),
+    ("REST Assured", r"(?<![a-z0-9])rest\s+assured(?![a-z0-9])"),
     ("Selenium", r"(?<![a-z0-9])selenium(?![a-z0-9])"),
     ("Cucumber", r"(?<![a-z0-9])cucumber(?![a-z0-9])"),
     ("TestNG", r"(?<![a-z0-9])testng(?![a-z0-9])"),
@@ -387,14 +387,14 @@ JOB_SKILL_PATTERNS = [
     ("Git", r"(?<![a-z0-9])git(?![a-z0-9])"),
     ("GitHub", r"(?<![a-z0-9])github(?![a-z0-9])"),
     ("Jenkins", r"(?<![a-z0-9])jenkins(?![a-z0-9])"),
-    ("CI/CD", r"(?<![a-z0-9])ci\\s*/\\s*cd(?![a-z0-9])"),
+    ("CI/CD", r"(?<![a-z0-9])ci\s*/\s*cd(?![a-z0-9])"),
     ("PostgreSQL", r"(?<![a-z0-9])postgres(?:ql)?(?![a-z0-9])"),
     ("MySQL", r"(?<![a-z0-9])mysql(?![a-z0-9])"),
     ("MongoDB", r"(?<![a-z0-9])mongodb(?![a-z0-9])"),
-    ("Power BI", r"(?<![a-z0-9])power\\s*bi(?![a-z0-9])"),
+    ("Power BI", r"(?<![a-z0-9])power\s*bi(?![a-z0-9])"),
     ("Tableau", r"(?<![a-z0-9])tableau(?![a-z0-9])"),
-    ("Machine Learning", r"(?<![a-z0-9])machine\\s+learning(?![a-z0-9])"),
-    ("Deep Learning", r"(?<![a-z0-9])deep\\s+learning(?![a-z0-9])"),
+    ("Machine Learning", r"(?<![a-z0-9])machine\s+learning(?![a-z0-9])"),
+    ("Deep Learning", r"(?<![a-z0-9])deep\s+learning(?![a-z0-9])"),
     ("Pandas", r"(?<![a-z0-9])pandas(?![a-z0-9])"),
     ("NumPy", r"(?<![a-z0-9])numpy(?![a-z0-9])"),
     ("PyTorch", r"(?<![a-z0-9])pytorch(?![a-z0-9])"),
@@ -405,12 +405,12 @@ JOB_SKILL_PATTERNS = [
 ]
 
 _PREFERRED_CUES = re.compile(
-    r"\\b(preferred|nice[- ]to[- ]have|bonus|desirable|a plus|ideally|would be great|"
-    r"good to have|preferred qualifications)\\b", re.I
+    r"\b(preferred|nice[- ]to[- ]have|bonus|desirable|a plus|ideally|would be great|"
+    r"good to have|preferred qualifications)\b", re.I
 )
 _REQUIRED_CUES = re.compile(
-    r"\\b(required|must[- ]have|minimum qualifications|basic qualifications|"
-    r"what you will need|what you'll need|you have|need to have|requirements)\\b", re.I
+    r"\b(required|must[- ]have|minimum qualifications|basic qualifications|"
+    r"what you will need|what you'll need|you have|need to have|requirements)\b", re.I
 )
 
 
@@ -438,7 +438,7 @@ def _job_skill_requirements(job: dict) -> list[dict]:
         priorities = []
         for match in positions:
             context = lower[max(0, match.start() - 120):min(len(lower), match.end() + 120)]
-            if re.search(r"\\bnot required\\b|\\bnot a requirement\\b", context):
+            if re.search(r"\bnot required\b|\bnot a requirement\b", context):
                 priorities.append("preferred")
             elif _PREFERRED_CUES.search(context):
                 priorities.append("preferred")
@@ -473,7 +473,7 @@ def enrich_job_matches(jobs: list[dict], skills: list[str]) -> list[dict]:
 
         if not requirements:
             haystack = " ".join(str(job.get(key, "") or "") for key in ("title", "description")).casefold()
-            matched = [skill for skill in clean_skills if aliases.get(skill.casefold(), skill.casefold()) in haystack]
+            matched = [skill for skill in clean_skills if re.search(r"(?<![a-z0-9])" + re.escape(aliases.get(skill.casefold(), skill.casefold())) + r"(?![a-z0-9])", haystack)]
             score = round(len(matched) / max(1, min(len(clean_skills), 8)) * 100) if matched else None
             job.update({
                 "matched_skills": matched, "missing_required_skills": [],
