@@ -437,17 +437,29 @@ def _job_skill_requirements(job: dict) -> list[dict]:
             continue
         priorities = []
         for match in positions:
-            window_start = max(0, match.start() - 100)
-            window_end = min(len(lower), match.end() + 100)
-            context = lower[window_start:window_end]
-            cue_matches = []
-            for cue in re.finditer(r"\bnot required\b|\bnot a requirement\b", context):
-                cue_matches.append((abs(window_start + cue.start() - match.start()), "preferred"))
-            for cue in _PREFERRED_CUES.finditer(context):
-                cue_matches.append((abs(window_start + cue.start() - match.start()), "preferred"))
-            for cue in _REQUIRED_CUES.finditer(context):
-                cue_matches.append((abs(window_start + cue.start() - match.start()), "required"))
-            priorities.append(min(cue_matches)[1] if cue_matches else "unspecified")
+            left = max(lower.rfind(".", 0, match.start()),
+                       lower.rfind(";", 0, match.start()),
+                       lower.rfind("\\n", 0, match.start())) + 1
+            right_candidates = [value for value in (
+                lower.find(".", match.end()), lower.find(";", match.end()),
+                lower.find("\\n", match.end())
+            ) if value >= 0]
+            right = min(right_candidates) if right_candidates else len(lower)
+            segment = lower[left:right]
+            if re.search(r"\\bnot required\\b|\\bnot a requirement\\b", segment) or _PREFERRED_CUES.search(segment):
+                priority = "preferred"
+            elif _REQUIRED_CUES.search(segment):
+                priority = "required"
+            else:
+                previous_line_start = lower.rfind("\\n", 0, left) + 1
+                previous_line = lower[previous_line_start:left].strip()
+                if re.search(r"\\bnot required\\b|\\bnot a requirement\\b", previous_line) or _PREFERRED_CUES.search(previous_line):
+                    priority = "preferred"
+                elif _REQUIRED_CUES.search(previous_line):
+                    priority = "required"
+                else:
+                    priority = "unspecified"
+            priorities.append(priority)
         priority = "required" if "required" in priorities else (
             "preferred" if "preferred" in priorities else "unspecified"
         )
