@@ -437,15 +437,17 @@ def _job_skill_requirements(job: dict) -> list[dict]:
             continue
         priorities = []
         for match in positions:
-            context = lower[max(0, match.start() - 120):min(len(lower), match.end() + 120)]
-            if re.search(r"\bnot required\b|\bnot a requirement\b", context):
-                priorities.append("preferred")
-            elif _PREFERRED_CUES.search(context):
-                priorities.append("preferred")
-            elif _REQUIRED_CUES.search(context):
-                priorities.append("required")
-            else:
-                priorities.append("unspecified")
+            window_start = max(0, match.start() - 100)
+            window_end = min(len(lower), match.end() + 100)
+            context = lower[window_start:window_end]
+            cue_matches = []
+            for cue in re.finditer(r"\bnot required\b|\bnot a requirement\b", context):
+                cue_matches.append((abs(window_start + cue.start() - match.start()), "preferred"))
+            for cue in _PREFERRED_CUES.finditer(context):
+                cue_matches.append((abs(window_start + cue.start() - match.start()), "preferred"))
+            for cue in _REQUIRED_CUES.finditer(context):
+                cue_matches.append((abs(window_start + cue.start() - match.start()), "required"))
+            priorities.append(min(cue_matches)[1] if cue_matches else "unspecified")
         priority = "required" if "required" in priorities else (
             "preferred" if "preferred" in priorities else "unspecified"
         )
